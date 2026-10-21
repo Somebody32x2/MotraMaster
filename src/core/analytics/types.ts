@@ -5,7 +5,8 @@
  *
  * See docs/research.md for the definitions behind every number.
  */
-import type { OneRmFormula, Workout } from '../types';
+import type { OneRmFormula, StrengthMetric, Workout } from '../types';
+export type { StrengthMetric } from '../types';
 
 /** Canonical body regions (Motra's 18 ids + neck) and three undrawn buckets. */
 export type RegionId =
@@ -27,7 +28,36 @@ export type Confidence = 'high' | 'medium';
 export type TrendStatus = 'progressing' | 'plateau' | 'dip' | 'insufficient';
 /** Weekly hard-set band per research §2.1: 0 | <5 | 5–9 | 10–20 | >20. */
 export type VolumeBand = 'none' | 'low' | 'moderate' | 'target' | 'high';
-export type PrType = 'weight' | 'reps' | 'e1rm' | 'setVolume' | 'sessionVolume';
+/** 'hold' = longest timed hold (value in seconds). */
+export type PrType = 'weight' | 'reps' | 'e1rm' | 'setVolume' | 'sessionVolume' | 'hold';
+
+/**
+ * How an exercise is measured.
+ * - weighted: external load (barbell, machine, dumbbell…).
+ * - bodyweight: the body is (part of) the load — dips, pull-ups, push-ups, assisted machines; sit-ups/crunches too, but those have no bodyweight factor and progress by reps.
+ * - timed: holds (plank, dead hang, wall sit) — progress by hold time; added weight is tracked alongside.
+ */
+export type ExerciseKind = 'weighted' | 'bodyweight' | 'timed';
+
+/**
+ * How a set's effective load (`loadLb`) was derived from the logged weight.
+ * - external: logged weight as-is (weighted exercises).
+ * - bodyweightAdded: logged weight was 0 or below half bodyweight → factor × bodyweight + logged weight.
+ * - bodyweightIncluded: logged weight ≥ half bodyweight → assumed to already include bodyweight; used as-is.
+ * - assisted: assisted machine → factor × bodyweight − logged assistance.
+ * - bodyweightUnknown: bodyweight exercise but no bodyweight in Settings → logged weight as-is (null when 0).
+ * - none: nothing to compute (no weight on a reps-only/timed exercise).
+ */
+export type LoadBasis = 'external' | 'bodyweightAdded' | 'bodyweightIncluded' | 'assisted' | 'bodyweightUnknown' | 'none';
+
+export interface ExerciseLoadModel {
+  kind: ExerciseKind;
+  /** Share of bodyweight moved (dips/pull-ups 1, push-ups ≈ 0.64); null when bodyweight isn't counted as load. */
+  bodyweightFactor: number | null;
+  assisted: boolean;
+  /** Why it was classified this way (e.g. 'name matches "pull-up"', 'most sets have time but no reps'), for the UI note. */
+  reason: string;
+}
 
 export interface E1rmEstimate {
   value: number;
@@ -56,8 +86,15 @@ export interface EnrichedSet {
   hard: boolean;
   /** First set of an exercise block within the workout (its rest includes changeover). */
   firstOfBlock: boolean;
+  /** Effective load × reps (0 when either is missing). */
   volumeLb: number;
+  /** e1RM from the effective load. */
   e1rm: E1rmEstimate | null;
+  /** Effective load per the exercise's load model; weightLb remains the logged value. */
+  loadLb: number | null;
+  loadBasis: LoadBasis;
+  /** Hold time for timed exercises (durationSec), else null. */
+  holdSec: number | null;
 }
 
 export interface SeriesPoint {
@@ -105,6 +142,24 @@ export interface SessionE1rm {
   reps: number;
 }
 
+/** A session's headline strength value under the active StrengthMetric. */
+export interface SessionStrength {
+  workoutId: string;
+  date: Date;
+  /** e1RM (metric 'e1rm') or the set's weight (metric 'actual'). */
+  value: number;
+  /** The set that produced `value`: for 'actual', the heaviest set (ties → most reps). */
+  weightLb: number;
+  reps: number;
+  e1rm: number | null;
+  /** e1RM confidence; null for 'actual'. */
+  confidence: Confidence | null;
+  /** Timed exercises: the hold in seconds (`value` is then this hold, `weightLb` the load held). */
+  holdSec: number | null;
+  /** How weightLb (the effective load) was derived. */
+  loadBasis: LoadBasis;
+}
+
 export interface ExerciseSummary {
   key: string;
   name: string;
@@ -121,13 +176,23 @@ export interface ExerciseSummary {
   bestWeightLb: number | null;
   bestE1rm: number | null;
   latestE1rm: number | null;
-  /** Theil–Sen %/month over the last 90 days; null when insufficient. */
+  /** Metric the strength fields below (and ratePerMonth/status/spark) are computed with. */
+  metric: StrengthMetric;
+  /** Latest/best session value under `metric`, with the set behind it. */
+  latestStrength: SessionStrength | null;
+  bestStrength: SessionStrength | null;
+  /** Theil–Sen %/month over the last 90 days of the `metric` series; null when insufficient. */
   ratePerMonth: number | null;
   status: TrendStatus;
-  /** Session e1RMs (or total session reps if unweighted), oldest → newest, for sparklines. */
+  /** Session values under `metric` (or total session reps if unweighted), oldest → newest, for sparklines. */
   spark: number[];
   /** Matched in the bundled Motra catalog. */
   inCatalog: boolean;
+  load: ExerciseLoadModel;
+  /** Unit of latestStrength/bestStrength.value and spark: 'lb' (load), 'sec' (holds), 'reps' (reps-only bodyweight work). */
+  valueUnit: 'lb' | 'sec' | 'reps';
+  /** Longest hold in the window (timed exercises; null otherwise). */
+  bestHoldSec: number | null;
 }
 
 export interface RepMaxRow {
@@ -142,7 +207,7 @@ export interface RepMaxRow {
 export interface ExerciseSessionRow {
   workoutId: string;
   date: Date;
-  sets: { weightLb: number | null; reps: number | null; e1rm: number | null; hard: boolean; restSec: number | null; durationSec: number | null }[];
+  sets: { weightLb: number | null; loadLb: number | null; loadBasis: LoadBasis; reps: number | null; e1rm: number | null; hard: boolean; restSec: number | null; durationSec: number | null; holdSec: number | null }[];
   volumeLb: number;
   bestE1rm: number | null;
   topWeightLb: number | null;
@@ -155,9 +220,11 @@ export interface ExerciseDetail extends ExerciseSummary {
   secondaryRegions: RegionId[];
   delts: DeltHead[];
   sessionsE1rm: SessionE1rm[];
-  /** EWMA (21-day half-life) through sessionsE1rm. */
+  /** Session points under the active metric (what the progress chart plots). */
+  sessionsStrength: SessionStrength[];
+  /** EWMA (21-day half-life) through sessionsStrength. */
   trend: SeriesPoint[];
-  /** Running all-time max e1RM (step). */
+  /** Running all-time max of sessionsStrength (step). */
   prEnvelope: SeriesPoint[];
   /** Session volume (Σ w·r). */
   sessionVolume: SeriesPoint[];
@@ -250,15 +317,21 @@ export interface StrengthProfile {
 export interface WorkoutSummary {
   workout: Workout;
   date: Date | null;
+  /** Effective duration: raw duration minus trimmed idle time (equals raw when trimming is off or not triggered). */
   durationSec: number | null;
+  /** Duration as Motra reported it (Total Duration, else end − start). */
+  rawDurationSec: number | null;
+  /** Idle seconds removed after the last set; 0 when nothing was trimmed. */
+  trimmedSec: number;
   sets: number;
   hardSets: number;
   volumeLb: number;
   exercises: number;
   topRegions: RegionId[];
   prCount: number;
-  /** lb per minute. */
+  /** lb per minute of effective duration. */
   density: number | null;
+  /** Calories ÷ raw duration minutes (calories include the idle time, so the raw duration is the honest divisor). */
   kcalPerMin: number | null;
 }
 
@@ -289,6 +362,9 @@ export interface OverviewStats {
   durationSec: number;
   calories: number;
   avgDurationSec: number | null;
+  /** Idle time trimmed from workouts in the window, and how many workouts were trimmed. */
+  trimmedSec: number;
+  trimmedWorkouts: number;
   /** Same metrics for the immediately preceding window of equal length (null for all-time). */
   previous: { workouts: number; hardSets: number; volumeLb: number; durationSec: number } | null;
   workoutsThisWeek: number;
@@ -327,4 +403,48 @@ export interface AnalysisIndex {
   latestDate: Date | null;
   formula: OneRmFormula;
   bodyweightLb: number | null;
+  strengthMetric: StrengthMetric;
+  /** Idle trimming in effect; graceSec = trimGraceMin × 60. */
+  trim: { enabled: boolean; graceSec: number };
+}
+
+/** Per-day metrics the calendar can color by. All per-day values sum/average over that day's workouts. */
+export type DayMetric =
+  | 'workouts' | 'volume' | 'duration' | 'density' | 'hardSets'
+  | 'calories' | 'kcalPerMin' | 'avgRest' | 'exercises' | 'startHour';
+
+export interface CalendarDay {
+  /** Local midnight. */
+  date: Date;
+  workoutIds: string[];
+  /** null when no workout that day (or metric unavailable, e.g. no calories). */
+  metrics: Record<DayMetric, number | null>;
+  /** Regions with the most direct hard sets that day, strongest first (≤3). */
+  topRegions: RegionId[];
+}
+
+export interface WeekdayStat {
+  /** 0 = Monday … 6 = Sunday. */
+  weekday: number;
+  /** Workouts that started on this weekday in the window. */
+  workouts: number;
+  /** Share of all workouts in the window (0..1). */
+  share: number;
+  /** Fraction of this weekday's calendar days in the window that had a workout (0..1). */
+  hitRate: number;
+  /** Mean of each DayMetric over days with a workout on this weekday. */
+  avg: Record<DayMetric, number | null>;
+  /** Regions most trained on this weekday by direct hard sets (≤3). */
+  topRegions: RegionId[];
+}
+
+export interface CalendarStats {
+  window: Window;
+  /** Every calendar day from window start (or first workout for all-time) to window end, chronological. */
+  days: CalendarDay[];
+  weekdays: WeekdayStat[];
+  /** Workouts by local start hour, index 0..23. */
+  hours: number[];
+  /** 7 × 24 counts, [weekday Mon=0][hour]. */
+  weekdayHour: number[][];
 }

@@ -4,8 +4,9 @@ import type { OneRmFormula, Units } from '../../core/types'
 import { paths } from '../../router'
 import { Card } from '../../ui/components/Card'
 import { DataTable, type Column } from '../../ui/components/DataTable'
-import { formatDate, formatDuration, formatNumber, formatPercent, formatWeight, plural, unitLabel } from '../../ui/format'
-import { PrChip } from '../../ui/widgets'
+import { formatDate, formatNumber, formatPercent, formatWeight, plural, unitLabel } from '../../ui/format'
+import { formatHold, loadBasisTitle, PrChip } from '../../ui/widgets'
+import { describeLoadedSet, setChipText } from './util'
 
 /** Predicted loads within 2% of (or below) the actual best are not worth flagging. */
 const OPPORTUNITY_MARGIN = 1.02
@@ -86,16 +87,16 @@ export function RepMaxCard({ d, units, detailed }: { d: ExerciseDetail; units: U
 
 type SessionSet = ExerciseSessionRow['sets'][number]
 
-function setLabel(s: SessionSet, units: Units): string {
-  const reps = s.reps != null && s.reps > 0 ? formatNumber(s.reps, { maxDecimals: 0 }) : null
-  if (s.weightLb != null && s.weightLb > 0) return `${formatWeight(s.weightLb, units, { unit: false })}×${reps ?? '0'}`
-  if (reps) return `${reps} reps`
-  if (s.durationSec != null && s.durationSec > 0) return formatDuration(s.durationSec)
-  return '—'
-}
-
 /** Most sets shown per row before collapsing into '+N'. */
 const MAX_CHIPS = 8
+
+function setTitle(s: SessionSet, units: Units): string | null {
+  if (s.holdSec != null && s.holdSec > 0) return null
+  if (s.loadBasis === 'bodyweightAdded' || s.loadBasis === 'bodyweightIncluded' || s.loadBasis === 'assisted' || s.loadBasis === 'bodyweightUnknown') {
+    return `${describeLoadedSet(s, units)} · ${loadBasisTitle(s.loadBasis, s.weightLb, s.loadLb, units)}`
+  }
+  return null
+}
 
 function SetChips({ sets, units }: { sets: SessionSet[]; units: Units }) {
   const shown = sets.slice(0, MAX_CHIPS)
@@ -105,9 +106,9 @@ function SetChips({ sets, units }: { sets: SessionSet[]; units: Units }) {
         <span
           key={i}
           class={s.hard ? 'set-chip' : 'set-chip set-chip--warmup'}
-          title={s.hard ? undefined : 'Warm-up: not counted as a hard set'}
+          title={[setTitle(s, units), s.hard ? null : 'Warm-up: not counted as a hard set'].filter(Boolean).join(' · ') || undefined}
         >
-          {setLabel(s, units)}
+          {setChipText(s, units)}
         </span>
       ))}
       {sets.length > shown.length && <span class="set-chip set-chip--more">+{sets.length - shown.length}</span>}
@@ -126,12 +127,12 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
     },
     {
       id: 'sets',
-      header: d.weighted ? `Sets (${unitLabel(units)} × reps)` : 'Sets',
+      header: d.valueUnit === 'lb' ? `Sets (${unitLabel(units)} × reps)` : 'Sets',
       sortable: false,
       render: (r) => <SetChips sets={r.sets} units={units} />,
     },
   ]
-  if (d.weighted) {
+  if (d.valueUnit === 'lb') {
     cols.push(
       {
         id: 'volume',
@@ -159,6 +160,17 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
         render: (r) => formatWeight(r.topWeightLb, units),
       })
     }
+  } else if (d.valueUnit === 'sec') {
+    cols.push({
+      id: 'hold',
+      header: 'Longest hold',
+      kind: 'number',
+      value: (r) => r.sets.reduce<number | null>((m, s) => (s.holdSec != null && (m == null || s.holdSec > m) ? s.holdSec : m), null),
+      render: (r) => {
+        const m = r.sets.reduce<number | null>((x, s) => (s.holdSec != null && (x == null || s.holdSec > x) ? s.holdSec : x), null)
+        return formatHold(m)
+      },
+    })
   } else {
     cols.push({
       id: 'reps',

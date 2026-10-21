@@ -3,8 +3,15 @@
  *
  * Input labels are `normalizeKey()` output, but every function re-normalizes
  * defensively so raw strings ('lowerBack', 'Rear-Delts') work too.
+ *
+ * Exercise catalog: `motra-exercises.json` is crawled from motra.com and is
+ * consulted first. `motra-exercises-extra.json` holds MotraMaster additions for
+ * exercises seen in real exports but missing from the crawl; their weights are
+ * modelled on the closest Motra entries (e.g. Machine Lateral Raise on Cable
+ * Single-Arm Lateral Raise) with the export's primary muscles weighted ≥ 8.
  */
 import catalogJson from '../data/motra-exercises.json' with { type: 'json' };
+import extraCatalogJson from '../data/motra-exercises-extra.json' with { type: 'json' };
 import { normalizeKey } from './labels.ts';
 import type { DeltHead, RegionId } from './analytics/types.ts';
 
@@ -207,27 +214,65 @@ export interface CatalogEntry {
   d: DeltHead[];
 }
 
+export type CatalogSource = 'motra' | 'extra';
+
 type RawCatalog = Record<string, { m: Record<string, number>; d?: string[] }>;
 
-let catalog: Map<string, CatalogEntry> | null = null;
+const PRESS = /\b(?:shoulder press|overhead press|military press|arnold)\b/;
 
-function loadCatalog(): Map<string, CatalogEntry> {
-  const map = new Map<string, CatalogEntry>();
-  for (const [name, entry] of Object.entries(catalogJson as unknown as RawCatalog)) {
-    const key = clean(name);
-    if (map.has(key)) continue;
-    const m: Partial<Record<RegionId, number>> = {};
-    for (const [id, w] of Object.entries(entry.m ?? {})) {
-      if (isRegionId(id) && typeof w === 'number' && Number.isFinite(w)) m[id] = w;
+/**
+ * Delt heads implied by an exercise name: rear-delt flyes/face pulls/pull-aparts
+ * → rear; lateral/side raises and upright rows → side; front raises → front;
+ * shoulder/overhead/military/Arnold presses → front + side. [] when nothing matches.
+ */
+export function inferDeltHeads(exerciseName: string): DeltHead[] {
+  const k = clean(exerciseName);
+  const front = /\bfront raise/.test(k) || PRESS.test(k);
+  const side = /\b(?:lateral raise|side raise|upright row)/.test(k) || PRESS.test(k);
+  const rear = /\b(?:rear delt|reverse fly|reverse pec|face pull|pull apart)/.test(k);
+  const heads: DeltHead[] = [];
+  if (front) heads.push('front');
+  if (side) heads.push('side');
+  if (rear) heads.push('rear');
+  return heads;
+}
+
+let catalog: Map<string, { entry: CatalogEntry; source: CatalogSource }> | null = null;
+
+function loadCatalog(): Map<string, { entry: CatalogEntry; source: CatalogSource }> {
+  const map = new Map<string, { entry: CatalogEntry; source: CatalogSource }>();
+  const sources: [RawCatalog, CatalogSource][] = [
+    [catalogJson as unknown as RawCatalog, 'motra'],
+    [extraCatalogJson as unknown as RawCatalog, 'extra'],
+  ];
+  for (const [raw, source] of sources) {
+    for (const [name, entry] of Object.entries(raw)) {
+      const key = clean(name);
+      if (map.has(key)) continue;
+      const m: Partial<Record<RegionId, number>> = {};
+      for (const [id, w] of Object.entries(entry.m ?? {})) {
+        if (isRegionId(id) && typeof w === 'number' && Number.isFinite(w)) m[id] = w;
+      }
+      let d = (entry.d ?? []).filter((h): h is DeltHead => h === 'front' || h === 'side' || h === 'rear');
+      if (d.length === 0 && (m.shoulders ?? 0) >= 6) d = inferDeltHeads(name);
+      map.set(key, { entry: { m, d }, source });
     }
-    const d = (entry.d ?? []).filter((h): h is DeltHead => h === 'front' || h === 'side' || h === 'rear');
-    map.set(key, { m, d });
   }
   return map;
 }
 
-/** Bundled Motra catalog entry for an exercise name (case/space/punctuation-insensitive). */
+/**
+ * Catalog entry for an exercise name (case/space/punctuation-insensitive): the
+ * Motra library first, then MotraMaster additions. Entries with real shoulder
+ * work but no listed delt heads get them inferred from the name. Shared: do not mutate.
+ */
 export function catalogLookup(exerciseName: string): CatalogEntry | null {
   catalog ??= loadCatalog();
-  return catalog.get(clean(exerciseName)) ?? null;
+  return catalog.get(clean(exerciseName))?.entry ?? null;
+}
+
+/** Which library `catalogLookup` resolves the name from, or null when neither has it. */
+export function catalogSource(exerciseName: string): CatalogSource | null {
+  catalog ??= loadCatalog();
+  return catalog.get(clean(exerciseName))?.source ?? null;
 }

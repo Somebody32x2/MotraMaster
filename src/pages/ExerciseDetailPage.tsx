@@ -4,7 +4,7 @@ import { exerciseDetail, oneRmFormulas } from '../core/analytics'
 import type { DeltHead, ExerciseDetail, RegionId } from '../core/analytics/types'
 import { displayLabel } from '../core/labels'
 import type { OneRmFormula, Sex, Units } from '../core/types'
-import { paths } from '../router'
+import { href, paths } from '../router'
 import { dataset, detailed, settings } from '../state'
 import { BodyMap } from '../ui/bodymap'
 import type { LinePoint } from '../ui/charts'
@@ -15,11 +15,11 @@ import { PageHeader } from '../ui/components/PageHeader'
 import { StatTile } from '../ui/components/StatTile'
 import { formatDate, formatDuration, formatNumber, formatWeight, plural, unitLabel } from '../ui/format'
 import { IconExercises, IconInfo } from '../ui/icons'
-import { formatRate, PrList, RegionChips, TrendBadge } from '../ui/widgets'
-import { E1rmChart, SimpleLineChart } from './exercises/E1rmChart'
+import { formatHold, formatRate, PrList, RegionChips, STRENGTH_METRIC_EXPLAINER, StrengthMetricToggle, strengthContext, strengthTitle, TrendBadge } from '../ui/widgets'
+import { E1rmChart, HoldChart, SimpleLineChart } from './exercises/E1rmChart'
 import { ChangeCard, DistributionCards, LoadCharts, RelativeStrengthCard, SetQualityCard } from './exercises/ExerciseInsights'
 import { FormulasCard, HistoryCard, RepMaxCard } from './exercises/ExerciseTables'
-import { exerciseCaveats } from './exercises/util'
+import { displayWeightFormat, exerciseCaveats, weightPoints } from './exercises/util'
 import './exercises/exercises.css'
 
 const ESTIMATE_CAVEAT =
@@ -120,7 +120,8 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
               <RegionChips regions={secondaryOnly} max={isDetailed ? undefined : 3} />
             </span>
           )}
-          {!d.weighted && <Badge>Bodyweight</Badge>}
+          {d.load.kind === 'bodyweight' && <Badge>Bodyweight</Badge>}
+          {d.load.kind === 'timed' && <Badge>Timed hold</Badge>}
           {isDetailed && (
             <Badge tone={d.inCatalog ? 'accent' : 'neutral'} title={d.inCatalog ? 'Secondary muscles from the bundled Motra catalog' : 'Custom or renamed exercise: muscles come from the export only'}>
               {d.inCatalog ? 'In Motra catalog' : 'Not in catalog'}
@@ -134,7 +135,11 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
         )}
       </PageHeader>
 
-      {d.weighted ? (
+      {d.load.kind !== 'weighted' && <LoadNote d={d} bodyweightLb={s.bodyweightLb} units={units} />}
+
+      {d.valueUnit === 'sec' ? (
+        <TimedBody d={d} units={units} detailed={isDetailed} />
+      ) : d.valueUnit === 'lb' ? (
         <WeightedBody
           d={d}
           units={units}
@@ -148,6 +153,46 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
         <UnweightedBody d={d} units={units} detailed={isDetailed} />
       )}
     </>
+  )
+}
+
+const pct = (f: number) => `${Math.round(f * 100)}%`
+
+/** 'How load is counted' note for bodyweight and timed exercises. */
+function LoadNote({ d, bodyweightLb, units }: { d: ExerciseDetail; bodyweightLb: number | null; units: Units }) {
+  const { kind, bodyweightFactor: f, assisted, reason } = d.load
+  let body
+  if (kind === 'timed') {
+    body = <p>Progress is your longest hold; added weight is tracked too.</p>
+  } else if (f == null) {
+    body = <p>Tracked by reps; add weight to see load trends.</p>
+  } else if (bodyweightLb == null || !(bodyweightLb > 0)) {
+    body = (
+      <p>
+        {d.name} counts {f < 1 ? `about ${pct(f)}` : pct(f)} of your bodyweight, but your bodyweight isn’t set. Until you{' '}
+        <a href={href(paths.settings())}>add it in Settings</a>, progress is shown from logged weight and reps only.
+      </p>
+    )
+  } else {
+    const share = f * bodyweightLb
+    const half = 0.5 * bodyweightLb
+    body = (
+      <p>
+        {d.name} counts {f < 1 ? `about ${pct(f)}` : pct(f)} of your bodyweight ({formatWeight(bodyweightLb, units)}
+        {f !== 1 ? `, so ${formatWeight(share, units)}` : ''}).{' '}
+        {assisted
+          ? `This is an assisted machine: the logged weight is assistance and is subtracted from that.`
+          : `Logged weight under ${formatWeight(half, units)} is treated as added weight (BW + plate); ${formatWeight(half, units)} or more is assumed to already include your bodyweight. Assisted machines subtract the assistance.`}
+      </p>
+    )
+  }
+  return (
+    <Card title="How load is counted">
+      <div class="load-note">
+        {body}
+        {reason && <p class="load-note__reason faint">Classified because {reason}.</p>}
+      </div>
+    </Card>
   )
 }
 
@@ -189,17 +234,38 @@ function WeightedBody({
     null,
   )
   const confidence = last ? `${last.confidence === 'high' ? 'High' : 'Medium'} confidence` : 'No eligible set'
+  const actual = d.metric === 'actual'
+  const best = d.bestStrength
+  const latest = d.latestStrength
+  const repsText = (s: { reps: number }) => (s.reps > 0 ? ` × ${formatNumber(s.reps, { maxDecimals: 0 })}` : '')
+  const e1rmTile = (
+    <StatTile
+      label="Estimated 1RM"
+      value={current != null ? formatWeight(current, units, { unit: false }) : '—'}
+      unit={current != null ? unitLabel(units) : undefined}
+      sub={`${confidence} · ${formulaLabel(formula)}`}
+      hint={ESTIMATE_CAVEAT}
+    />
+  )
 
   return (
     <div class="stack">
       <div class="stats-row">
-        <StatTile
-          label="Estimated 1RM"
-          value={current != null ? formatWeight(current, units, { unit: false }) : '—'}
-          unit={current != null ? unitLabel(units) : undefined}
-          sub={`${confidence} · ${formulaLabel(formula)}`}
-          hint={ESTIMATE_CAVEAT}
-        />
+        {actual ? (
+          <StatTile
+            label="Heaviest set"
+            value={best ? formatWeight(best.value, units, { unit: false }) : '—'}
+            unit={best ? `${unitLabel(units)}${repsText(best)}` : undefined}
+            sub={
+              latest
+                ? `Latest ${formatWeight(latest.value, units)}${repsText(latest)}${strengthContext(latest, 'actual', units) ? ` · ${strengthContext(latest, 'actual', units)}` : ''}`
+                : 'No weighted sets in range'
+            }
+            hint="The heaviest weight you actually lifted, whatever the reps. Switch to Estimated 1RM in the chart below or in Settings."
+          />
+        ) : (
+          e1rmTile
+        )}
         {detailed && (
           <StatTile
             label="Best e1RM in range"
@@ -210,12 +276,16 @@ function WeightedBody({
             sub="Highest session estimate"
           />
         )}
-        <StatTile
-          label="Best weight"
-          value={d.bestWeightLb != null ? formatWeight(d.bestWeightLb, units, { unit: false }) : '—'}
-          unit={d.bestWeightLb != null ? unitLabel(units) : undefined}
-          sub={bestTop ? `Top set on ${formatDate(bestTop.date, 'short')}` : 'Heaviest set in range'}
-        />
+        {actual ? (
+          e1rmTile
+        ) : (
+          <StatTile
+            label="Best weight"
+            value={d.bestWeightLb != null ? formatWeight(d.bestWeightLb, units, { unit: false }) : '—'}
+            unit={d.bestWeightLb != null ? unitLabel(units) : undefined}
+            sub={bestTop ? `Top set on ${formatDate(bestTop.date, 'short')}` : 'Heaviest set in range'}
+          />
+        )}
         <StatTile
           label="Sessions"
           value={formatNumber(d.sessions, { maxDecimals: 0 })}
@@ -230,9 +300,14 @@ function WeightedBody({
       </div>
 
       <Card
-        title="Estimated 1RM"
-        subtitle="Each session’s best set, a 21-day trend, and your best so far. Click a point to open the workout."
-        info={ESTIMATE_CAVEAT}
+        title={strengthTitle(d.metric)}
+        subtitle={
+          actual
+            ? 'The heaviest set you lifted each session (any reps), a 21-day trend, and your best so far. Click a point to open the workout.'
+            : 'Each session’s best set, a 21-day trend, and your best so far. Click a point to open the workout.'
+        }
+        info={actual ? STRENGTH_METRIC_EXPLAINER : ESTIMATE_CAVEAT}
+        actions={<StrengthMetricToggle />}
       >
         <E1rmChart d={d} units={units} />
         <Caveats items={caveats} />
@@ -325,6 +400,64 @@ function UnweightedBody({ d, units, detailed }: { d: ExerciseDetail; units: Unit
           <PrCard d={d} units={units} />
           <SetQualityCard d={d} />
           <DistributionCards d={d} />
+        </div>
+      ) : (
+        <PrCard d={d} units={units} />
+      )}
+
+      <HistoryCard d={d} units={units} detailed={detailed} />
+    </div>
+  )
+}
+
+function TimedBody({ d, units, detailed }: { d: ExerciseDetail; units: Units; detailed: boolean }) {
+  const latest = d.latestStrength
+  const best = d.bestHoldSec ?? d.bestStrength?.holdSec ?? d.bestStrength?.value ?? null
+  const weightedHolds = d.topWeight.some((p) => p.value > 0)
+  return (
+    <div class="stack">
+      <div class="stats-row">
+        <StatTile
+          label="Longest hold"
+          value={best != null ? formatHold(best) : '—'}
+          sub={
+            latest
+              ? `Latest ${formatHold(latest.holdSec ?? latest.value)}${latest.weightLb > 0 ? ` +${formatWeight(latest.weightLb, units)}` : ''}`
+              : 'No timed sets in range'
+          }
+        />
+        <StatTile
+          label="Sessions"
+          value={formatNumber(d.sessions, { maxDecimals: 0 })}
+          sub={`${plural(d.sets, 'set')}${d.firstDate ? ` since ${formatDate(d.firstDate, 'month')}` : ''}`}
+        />
+        <StatTile
+          label="Trend"
+          value={d.status === 'insufficient' || d.ratePerMonth == null ? '—' : formatRate(d.ratePerMonth)}
+          sub={<TrendBadge status={d.status} ratePerMonth={null} />}
+          hint="Theil–Sen slope of each session’s longest hold over the last 90 days. Needs 4+ sessions spanning 21+ days."
+        />
+      </div>
+
+      <Card title="Longest hold" subtitle="Each session’s longest hold, a 21-day trend, and your best so far. Click a point to open the workout.">
+        <HoldChart d={d} units={units} />
+      </Card>
+
+      {weightedHolds && (
+        <Card title="Added weight" subtitle="Heaviest weight held in each session">
+          <SimpleLineChart
+            points={weightPoints(d.topWeight, units)}
+            label={`Added weight for ${d.name}`}
+            format={displayWeightFormat(units)}
+            empty="No weighted holds in this range."
+          />
+        </Card>
+      )}
+
+      {detailed ? (
+        <div class="grid-2">
+          <PrCard d={d} units={units} />
+          <SetQualityCard d={d} />
         </div>
       ) : (
         <PrCard d={d} units={units} />

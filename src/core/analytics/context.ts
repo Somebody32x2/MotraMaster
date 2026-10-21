@@ -4,7 +4,7 @@
  */
 import type { CatalogEntry } from '../regions.ts';
 import type { Dataset, Settings, Workout } from '../types.ts';
-import type { AnalysisIndex, EnrichedSet, PrEvent, PrType, RegionId, SessionE1rm, Window } from './types.ts';
+import type { AnalysisIndex, EnrichedSet, ExerciseLoadModel, PrEvent, PrType, RegionId, SessionE1rm, SessionStrength, StrengthMetric, Window } from './types.ts';
 import { sliceRange } from './util.ts';
 
 /** One exercise within one workout. */
@@ -20,6 +20,10 @@ export interface Session {
   prTypes: PrType[];
   /** Best session e1RM over the trailing 8 weeks including this session. */
   trail8Best: number | null;
+  /** Session strength under each metric (null when the session has no value for it). */
+  byMetric: Record<StrengthMetric, SessionStrength | null>;
+  /** byMetric[active metric]. */
+  strength: SessionStrength | null;
 }
 
 export interface ExerciseCtx {
@@ -33,7 +37,9 @@ export interface ExerciseCtx {
   regionCredit: Partial<Record<RegionId, number>>;
   /** Directly credited regions, strongest first. */
   regions: RegionId[];
+  /** Any set with effective load > 0. */
   weighted: boolean;
+  load: ExerciseLoadModel;
   catalog: CatalogEntry | null;
   /** Share of shoulder credit that is rear delt (pull/posterior) for balance ratios. */
   rearShare: number;
@@ -51,10 +57,18 @@ export interface WorkoutAgg {
   exercises: number;
   regionHard: Partial<Record<RegionId, number>>;
   prs: PrEvent[];
+  /** Duration as reported (Total Duration, else end − start); null when unknown. */
+  rawDurationSec: number | null;
+  /** Raw duration minus trimmed idle tail; null when raw is unknown. */
+  effectiveSec: number | null;
+  /** Idle seconds trimmed after the last set (0 when untouched). */
+  trimmedSec: number;
 }
 
 export interface Ctx {
   ds: Dataset;
+  /** Active strength metric (settings.strengthMetric, validated). */
+  metric: StrengthMetric;
   settings: Settings;
   /** Dated sets, chronological (same array as idx.sets). */
   sets: EnrichedSet[];

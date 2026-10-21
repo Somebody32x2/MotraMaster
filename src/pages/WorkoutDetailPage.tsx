@@ -48,7 +48,13 @@ export default function WorkoutDetailPage({ workoutId }: { workoutId: string }) 
 
   const w = d.workout
   const calories = isNum(w.calories) && w.calories > 0 ? w.calories : null
-  const timeRange = w.start && w.end ? `${formatDate(w.start, 'time')} – ${formatDate(w.end, 'time')}` : w.start ? formatDate(w.start, 'time') : null
+  const trimmed = d.trimmedSec > 0 && d.rawDurationSec != null
+  const timeRange =
+    w.start && w.end
+      ? `${formatDate(w.start, 'time')} – ${formatDate(w.end, 'time')}${trimmed ? ' (stopped late)' : ''}`
+      : w.start
+        ? formatDate(w.start, 'time')
+        : null
   const headerMeta = [timeRange, d.durationSec != null ? formatDuration(d.durationSec) : null, calories != null ? `${formatNumber(calories, { maxDecimals: 0 })} kcal` : null]
     .filter(Boolean)
     .join(' · ')
@@ -75,7 +81,16 @@ export default function WorkoutDetailPage({ workoutId }: { workoutId: string }) 
 
       <div class="ov-grid">
         <div class="stats-row ov-span-12">
-          <StatTile label="Duration" value={formatDuration(d.durationSec)} />
+          <StatTile
+            label="Duration"
+            value={formatDuration(d.durationSec)}
+            sub={trimmed ? `Trimmed ${formatDuration(d.trimmedSec)} idle · logged ${formatDuration(d.rawDurationSec)}` : undefined}
+            hint={
+              trimmed
+                ? 'The workout kept running after your last set, so time beyond the logged set and rest times plus the grace period was trimmed. Long rests between sets are kept; calories and heart-rate zones are left as Motra recorded them. Adjust this in Settings.'
+                : undefined
+            }
+          />
           <StatTile
             label="Hard sets"
             value={formatNumber(d.hardSets, { maxDecimals: 0 })}

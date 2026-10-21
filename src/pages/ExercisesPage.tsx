@@ -4,7 +4,7 @@ import { exerciseSummaries } from '../core/analytics'
 import type { ExerciseSummary, RegionId } from '../core/analytics/types'
 import { normalizeKey } from '../core/labels'
 import { REGION_ORDER, regionName } from '../core/regions'
-import type { Units } from '../core/types'
+import type { StrengthMetric, Units } from '../core/types'
 import { paths } from '../router'
 import { detailed, settings } from '../state'
 import { Sparkline } from '../ui/charts'
@@ -14,13 +14,13 @@ import { EmptyState } from '../ui/components/EmptyState'
 import { PageHeader } from '../ui/components/PageHeader'
 import { formatDate, formatNumber, formatWeight, plural } from '../ui/format'
 import { IconCheck, IconExercises } from '../ui/icons'
-import { formatRate, RegionChips, TrendBadge } from '../ui/widgets'
+import { BwBadge, formatHold, formatRate, formatStrength, formatUnitValue, RegionChips, strengthBestLabel, strengthContext, TrendBadge } from '../ui/widgets'
 import { repStatsByExercise, type RepStats } from './exercises/util'
 import './exercises/exercises.css'
 
 type RegionFilter = 'all' | RegionId
 
-function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean): Column<ExerciseSummary>[] {
+function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean, metric: StrengthMetric): Column<ExerciseSummary>[] {
   const cols: Column<ExerciseSummary>[] = [
     {
       id: 'name',
@@ -30,7 +30,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
       render: (e) => (
         <span class="ex-name">
           <span class="ex-name__text">{e.name}</span>
-          {!e.weighted && <span class="ex-name__tag">Bodyweight</span>}
+          <BwBadge load={e.load} />
         </span>
       ),
     },
@@ -45,12 +45,26 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
     { id: 'sets', header: 'Sets', kind: 'number', value: (e) => e.sets, priority: 2 },
     {
       id: 'best',
-      header: 'Best',
+      header: strengthBestLabel(metric),
       kind: 'number',
-      title: 'Best estimated 1RM (top weight below); most reps in a set for bodyweight work',
-      value: (e) => (e.weighted ? (e.bestE1rm ?? e.bestWeightLb) : null),
+      title:
+        metric === 'actual'
+          ? 'Heaviest weight actually lifted (with its reps); most reps in a set for bodyweight work'
+          : 'Best estimated 1RM (the set behind it below); most reps in a set for bodyweight work',
+      value: (e) => (e.valueUnit === 'lb' ? (e.bestStrength?.value ?? e.bestWeightLb) : null),
       render: (e) => {
-        if (!e.weighted) {
+        if (e.valueUnit === 'sec') {
+          const best = e.bestHoldSec ?? e.bestStrength?.holdSec ?? null
+          return best != null ? (
+            <span class="cell-2">
+              <span>{formatHold(best)}</span>
+              <span class="cell-2__sub">longest hold</span>
+            </span>
+          ) : (
+            '—'
+          )
+        }
+        if (e.valueUnit === 'reps') {
           const r = reps.get(e.key)
           return r?.bestReps != null ? (
             <span class="cell-2">
@@ -61,25 +75,30 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
             '—'
           )
         }
+        const s = e.bestStrength
+        if (!s) return formatWeight(e.bestWeightLb, units)
+        const ctx = strengthContext(s, metric, units)
         return (
           <span class="cell-2">
-            <span>{e.bestE1rm != null ? formatWeight(e.bestE1rm, units) : formatWeight(e.bestWeightLb, units)}</span>
-            {e.bestE1rm != null && e.bestWeightLb != null && (
-              <span class="cell-2__sub">top {formatWeight(e.bestWeightLb, units)}</span>
-            )}
+            <span>{formatStrength(s, metric, units)}</span>
+            {ctx && <span class="cell-2__sub">{ctx}</span>}
           </span>
         )
       },
     },
     {
       id: 'latest',
-      header: 'Latest',
+      header: metric === 'actual' ? 'Latest' : 'Latest e1RM',
       kind: 'number',
       priority: 3,
-      title: 'Estimated 1RM in the most recent session; total reps for bodyweight work',
-      value: (e) => (e.weighted ? e.latestE1rm : null),
+      title:
+        metric === 'actual'
+          ? 'Heaviest set in the most recent session (weight × reps); total reps for bodyweight work'
+          : 'Estimated 1RM in the most recent session; total reps for bodyweight work',
+      value: (e) => (e.valueUnit === 'lb' ? (e.latestStrength?.value ?? null) : null),
       render: (e) => {
-        if (!e.weighted) {
+        if (e.valueUnit === 'sec') return formatStrength(e.latestStrength, metric, units, 'sec')
+        if (e.valueUnit === 'reps') {
           const total = reps.get(e.key)?.totalReps ?? 0
           return total > 0 ? (
             <span class="cell-2">
@@ -90,7 +109,15 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
             '—'
           )
         }
-        return e.latestE1rm != null ? formatWeight(e.latestE1rm, units) : '—'
+        const s = e.latestStrength
+        if (!s) return '—'
+        const ctx = strengthContext(s, metric, units)
+        return (
+          <span class="cell-2">
+            <span>{formatStrength(s, metric, units)}</span>
+            {ctx && <span class="cell-2__sub">{ctx}</span>}
+          </span>
+        )
       },
     },
     {
@@ -104,8 +131,8 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
           width={88}
           height={24}
           trendColor
-          valueFormat={e.weighted ? (n) => formatWeight(n, units) : (n) => `${formatNumber(n, { maxDecimals: 0 })} reps`}
-          ariaLabel={`${e.name}: ${e.weighted ? 'session e1RM' : 'session reps'} over ${plural(e.spark.length, 'session')}`}
+          valueFormat={(n) => formatUnitValue(n, e.valueUnit, units)}
+          ariaLabel={`${e.name}: ${e.valueUnit === 'sec' ? 'session longest hold' : e.valueUnit === 'lb' ? (metric === 'actual' ? 'session heaviest set' : 'session e1RM') : 'session reps'} over ${plural(e.spark.length, 'session')}`}
         />
       ),
     },
@@ -125,7 +152,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
         header: '%/mo',
         kind: 'number',
         priority: 2,
-        title: 'Theil–Sen rate of e1RM change over the last 90 days',
+        title: `Theil–Sen rate of ${metric === 'actual' ? 'heaviest-set' : 'e1RM'} change over the last 90 days`,
         value: (e) => e.ratePerMonth,
         render: (e) => (
           <span class={e.ratePerMonth == null ? 'faint' : e.ratePerMonth > 1 ? 'delta--pos' : e.ratePerMonth < -1 ? 'delta--neg' : undefined}>
@@ -204,7 +231,8 @@ export default function ExercisesPage() {
     )
   }, [all, query, activeRegion])
 
-  const cols = useMemo(() => columns(units, reps, isDetailed), [units, reps, isDetailed])
+  const metric = settings.value.strengthMetric
+  const cols = useMemo(() => columns(units, reps, isDetailed, metric), [units, reps, isDetailed, metric])
 
   if (!idx) {
     return (

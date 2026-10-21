@@ -3,7 +3,7 @@ import { getCtx, memo, windowWorkouts, type Ctx, type WorkoutAgg } from './conte
 import type { AnalysisIndex, RegionId, Window, WorkoutDetail, WorkoutSummary } from './types.ts';
 import { finiteOrNull, num } from './util.ts';
 
-function topRegions(credit: Partial<Record<RegionId, number>>, n: number): RegionId[] {
+export function topRegions(credit: Partial<Record<RegionId, number>>, n: number): RegionId[] {
   return (Object.entries(credit) as [RegionId, number][])
     .filter(([, c]) => c > 0)
     .sort((a, b) => b[1] - a[1])
@@ -12,13 +12,16 @@ function topRegions(credit: Partial<Record<RegionId, number>>, n: number): Regio
 }
 
 function summarize(w: WorkoutAgg): WorkoutSummary {
-  const durationSec = num(w.workout.durationSec);
+  const durationSec = w.effectiveSec;
   const minutes = durationSec !== null && durationSec > 0 ? durationSec / 60 : null;
+  const rawMinutes = w.rawDurationSec !== null && w.rawDurationSec > 0 ? w.rawDurationSec / 60 : null;
   const calories = num(w.workout.calories);
   return {
     workout: w.workout,
     date: w.date,
     durationSec,
+    rawDurationSec: w.rawDurationSec,
+    trimmedSec: w.trimmedSec,
     sets: w.sets.length,
     hardSets: w.hardSets,
     volumeLb: w.volumeLb,
@@ -26,7 +29,7 @@ function summarize(w: WorkoutAgg): WorkoutSummary {
     topRegions: topRegions(w.regionHard, 3),
     prCount: w.prs.length,
     density: minutes !== null && w.volumeLb > 0 ? finiteOrNull(w.volumeLb / minutes) : null,
-    kcalPerMin: minutes !== null && calories !== null && calories > 0 ? finiteOrNull(calories / minutes) : null,
+    kcalPerMin: rawMinutes !== null && calories !== null && calories > 0 ? finiteOrNull(calories / rawMinutes) : null,
   };
 }
 

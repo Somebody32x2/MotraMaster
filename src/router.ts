@@ -8,6 +8,7 @@ export type RouteName =
   | 'exercise'
   | 'workouts'
   | 'workout'
+  | 'calendar'
   | 'import'
   | 'settings'
 
@@ -26,6 +27,7 @@ const PATTERNS: Array<[RouteName, string[]]> = [
   ['exercise', ['exercises', ':key']],
   ['workouts', ['workouts']],
   ['workout', ['workouts', ':id']],
+  ['calendar', ['calendar']],
   ['import', ['import']],
   ['settings', ['settings']],
 ]
@@ -91,6 +93,7 @@ export const paths = {
   exercise: (key: string) => `/exercises/${encodeURIComponent(key)}`,
   workouts: () => '/workouts',
   workout: (id: string) => `/workouts/${encodeURIComponent(id)}`,
+  calendar: () => '/calendar',
   import: () => '/import',
   settings: () => '/settings',
 }

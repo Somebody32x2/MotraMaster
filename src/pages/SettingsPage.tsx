@@ -25,6 +25,7 @@ import {
   unitLabel,
 } from '../ui/format'
 import { IconFile, IconMoon, IconSun, IconSystem, IconTrash } from '../ui/icons'
+import { STRENGTH_METRIC_EXPLAINER, STRENGTH_METRIC_OPTIONS } from '../ui/widgets'
 import { StrengthLiftList } from './overview/RelativeStrength'
 
 const UNIT_OPTIONS: SegmentedOption<Units>[] = [
@@ -313,10 +314,23 @@ export default function SettingsPage() {
         </Setting>
       </Card>
 
-      <Card
-        title="Estimated one-rep max"
-        subtitle="How a set’s weight (w) and reps (r) are converted into an estimated 1RM. Sets above 12 reps are less reliable with any formula."
-      >
+      <Card title="Strength" subtitle="How progress is tracked across sparklines, trends, top lifts and exercise charts.">
+        <Setting label="Track progress by" desc={STRENGTH_METRIC_EXPLAINER}>
+          <Segmented
+            label="Track progress by"
+            block
+            options={STRENGTH_METRIC_OPTIONS}
+            value={s.strengthMetric}
+            onChange={(strengthMetric) => updateSettings({ strengthMetric })}
+          />
+        </Setting>
+        <div class="settings-formula-head">
+          <p class="setting__label">1RM formula</p>
+          <p class="setting__desc">
+            How a set’s weight (w) and reps (r) become an estimated 1RM, used for e1RM progress, rep maxes and strength standards. Sets above 12 reps
+            are less reliable with any formula.
+          </p>
+        </div>
         <div class="choices" role="radiogroup" aria-label="1RM formula">
           {FORMULAS.map((f) => (
             <label key={f.value} class="choice">
@@ -339,8 +353,33 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <Card title="Workout duration" subtitle="For workouts left running after the last set.">
+        <Setting
+          label="Idle time"
+          desc="Uses the logged set and rest times. Long rests between sets are kept; only time after the last set beyond the grace period is removed. Calories and heart-rate zones are left as Motra recorded them."
+        >
+          <Toggle label="Trim idle time after the last set" checked={s.trimIdle} onChange={(trimIdle) => updateSettings({ trimIdle })} />
+        </Setting>
+        <Setting label="Grace period" desc="Minutes kept after the last set for cool-down and wrapping up (0–60).">
+          <NumberField
+            label="Grace period"
+            hideLabel
+            unit="min"
+            value={s.trimGraceMin}
+            decimals={0}
+            min={0}
+            max={60}
+            disabled={!s.trimIdle}
+            onChange={(v) => updateSettings({ trimGraceMin: v == null ? 5 : Math.min(60, Math.max(0, Math.round(v))) })}
+          />
+        </Setting>
+      </Card>
+
       <Card title="Body metrics" subtitle="Optional. Used only for calculations on this device.">
-        <Setting label="Bodyweight" desc="Your current weight. Update it occasionally to keep relative numbers honest.">
+        <Setting
+          label="Bodyweight"
+          desc="Your current weight. Update it occasionally to keep relative numbers honest. Also used to count bodyweight in dips, pull-ups and push-ups."
+        >
           <NumberField
             label="Bodyweight"
             hideLabel

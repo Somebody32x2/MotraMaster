@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeKey } from './labels.ts';
-import { catalogLookup, explainMuscle, REGION_ORDER, REGIONS, regionName, resolveMuscle } from './regions.ts';
+import { catalogLookup, catalogSource, explainMuscle, inferDeltHeads, REGION_ORDER, REGIONS, regionName, resolveMuscle } from './regions.ts';
 
 describe('resolveMuscle', () => {
   it('maps synonyms from the §2.2 table', () => {
@@ -104,5 +104,66 @@ describe('catalogLookup', () => {
     expect(bench?.d).toEqual(['front']);
     expect(catalogLookup('  barbell   BENCH press ')).toEqual(bench);
     expect(catalogLookup('my custom thing')).toBeNull();
+  });
+
+  it('falls back to the MotraMaster additions library', () => {
+    const names = [
+      'Machine Tricep Press', 'Machine Rear Delt (Reverse) Fly', 'Machine Tricep Extension',
+      'Machine Hammer-Grip Shoulder Press', 'Machine Lateral Raise', 'Machine Shoulder Press',
+      'Ring Pull-Up', 'Ab Rollout', 'Machine Overhead Tricep Extension', 'Bicycle Crunch',
+    ];
+    for (const n of names) {
+      expect(catalogLookup(n), n).not.toBeNull();
+      expect(catalogSource(n), n).toBe('extra');
+    }
+    expect(catalogSource('Barbell Bench Press')).toBe('motra');
+    expect(catalogSource('my custom thing')).toBeNull();
+
+    const fly = catalogLookup('Machine Rear Delt (Reverse) Fly');
+    expect(fly?.m.shoulders).toBeGreaterThanOrEqual(8);
+    expect(fly?.m.traps).toBeGreaterThanOrEqual(8);
+    expect(fly?.d).toEqual(['rear']);
+    expect(catalogLookup('Machine Lateral Raise')?.d).toEqual(['side']);
+    expect(catalogLookup('Machine Shoulder Press')?.d).toEqual(['front', 'side']);
+    const ring = catalogLookup('Ring Pull-Up');
+    expect(ring?.m.lats).toBeGreaterThanOrEqual(8);
+    expect(ring?.m.biceps).toBeGreaterThanOrEqual(8);
+    expect(catalogLookup('Bicycle Crunch')?.m.obliques).toBeGreaterThanOrEqual(8);
+  });
+
+  it('normalizes case, spacing, hyphens and parentheses', () => {
+    const fly = catalogLookup('Machine Rear Delt (Reverse) Fly');
+    expect(catalogLookup('  machine  REAR delt ( reverse )  fly ')).toEqual(fly);
+    expect(catalogLookup('Machine Rear Delt Reverse Fly')).toEqual(fly);
+    expect(catalogLookup('ring pull up')).toEqual(catalogLookup('Ring Pull-Up'));
+    expect(catalogLookup('MachineLateralRaise')).toEqual(catalogLookup('Machine Lateral Raise'));
+  });
+});
+
+describe('inferDeltHeads', () => {
+  it('maps name keywords to delt heads', () => {
+    expect(inferDeltHeads('Cable Rear Delt Fly')).toEqual(['rear']);
+    expect(inferDeltHeads('Band Reverse Fly')).toEqual(['rear']);
+    expect(inferDeltHeads('Rope Face Pull')).toEqual(['rear']);
+    expect(inferDeltHeads('Band Pull-Apart')).toEqual(['rear']);
+    expect(inferDeltHeads('Lean-Away Lateral Raise')).toEqual(['side']);
+    expect(inferDeltHeads('Side Raise')).toEqual(['side']);
+    expect(inferDeltHeads('Cable Upright Row')).toEqual(['side']);
+    expect(inferDeltHeads('Plate Front Raise')).toEqual(['front']);
+    expect(inferDeltHeads('Seated Shoulder Press')).toEqual(['front', 'side']);
+    expect(inferDeltHeads('Landmine Overhead Press')).toEqual(['front', 'side']);
+    expect(inferDeltHeads('Military Press')).toEqual(['front', 'side']);
+    expect(inferDeltHeads('Dumbbell Arnold Press')).toEqual(['front', 'side']);
+  });
+
+  it('returns nothing for non-shoulder names', () => {
+    expect(inferDeltHeads('Barbell Back Squat')).toEqual([]);
+    expect(inferDeltHeads('Overhead Tricep Extension')).toEqual([]);
+    expect(inferDeltHeads('')).toEqual([]);
+  });
+
+  it('fills missing delt heads on library entries with real shoulder work', () => {
+    expect(catalogLookup('Cable Internal Shoulder Rotation')?.d).toEqual([]);
+    expect(catalogLookup('Dumbbell Lateral Raise')?.d).toEqual(['side']);
   });
 });

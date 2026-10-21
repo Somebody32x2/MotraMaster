@@ -16,7 +16,7 @@ function totals(ws: WorkoutAgg[]): { workouts: number; hardSets: number; volumeL
   for (const w of ws) {
     hardSets += w.hardSets;
     volumeLb += w.volumeLb;
-    durationSec += num(w.workout.durationSec) ?? 0;
+    durationSec += w.effectiveSec ?? 0;
   }
   return { workouts: ws.length, hardSets, volumeLb, durationSec };
 }
@@ -82,11 +82,17 @@ function computeOverview(idx: AnalysisIndex, ctx: Ctx, win: Window): OverviewSta
   const sets = windowSets(ctx, win.start, end);
   const t = totals(ws);
   let calories = 0;
+  let trimmedSec = 0;
+  let trimmedWorkouts = 0;
   const durations: number[] = [];
   for (const w of ws) {
     calories += num(w.workout.calories) ?? 0;
-    const d = num(w.workout.durationSec);
+    const d = w.effectiveSec;
     if (d !== null && d > 0) durations.push(d);
+    if (w.trimmedSec > 0) {
+      trimmedSec += w.trimmedSec;
+      trimmedWorkouts++;
+    }
   }
 
   let previous: OverviewStats['previous'] = null;
@@ -107,7 +113,7 @@ function computeOverview(idx: AnalysisIndex, ctx: Ctx, win: Window): OverviewSta
     const i = weekIndex.get(dayKey(startOfWeek(w.date!)));
     if (i === undefined) continue;
     const row = weekly[i];
-    const dur = num(w.workout.durationSec);
+    const dur = w.effectiveSec;
     row.workouts++;
     row.sets += w.sets.length;
     row.hardSets += w.hardSets;
@@ -148,7 +154,7 @@ function computeOverview(idx: AnalysisIndex, ctx: Ctx, win: Window): OverviewSta
   const { current, longest } = streaks(ctx, end);
 
   const topLifts = exerciseSummaries(idx, win)
-    .filter((e) => e.weighted && e.bestWeightLb !== null)
+    .filter((e) => e.weighted && e.valueUnit === 'lb')
     .sort((a, b) => b.sessions - a.sessions || b.sets - a.sets)
     .slice(0, 6);
 
@@ -199,6 +205,8 @@ function computeOverview(idx: AnalysisIndex, ctx: Ctx, win: Window): OverviewSta
     durationSec: t.durationSec,
     calories,
     avgDurationSec: durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : null,
+    trimmedSec,
+    trimmedWorkouts,
     previous,
     workoutsThisWeek: windowWorkouts(ctx, week7, end).length,
     avgWorkoutsPerWeek4w: windowWorkouts(ctx, days28, end).length / 4,

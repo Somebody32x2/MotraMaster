@@ -82,12 +82,12 @@ function shareBars(labels: string[], shares: number[]): BarDatum[] | null {
 
 /** D5: %e1RM zones and rep-range mix of hard sets. */
 export function DistributionCards({ d }: { d: ExerciseDetail }) {
-  const zones = d.weighted ? shareBars(ZONE_LABELS, d.intensityZones) : null
+  const zones = d.valueUnit === 'lb' ? shareBars(ZONE_LABELS, d.intensityZones) : null
   const ranges = shareBars(REP_LABELS, d.repRanges)
   const pct = (n: number) => formatPercent(n, { decimals: 0 })
   return (
     <>
-      {d.weighted && (
+      {d.valueUnit === 'lb' && (
         <Card
           title="Intensity zones"
           subtitle="Hard sets by % of your recent best e1RM"

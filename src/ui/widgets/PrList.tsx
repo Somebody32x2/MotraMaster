@@ -2,6 +2,7 @@ import type { PrEvent, PrType } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import { href, paths } from '../../router'
 import { formatDate, formatNumber, formatWeight } from '../format'
+import { formatHold } from './StrengthMetric'
 
 const PR_LABEL: Record<PrType, string> = {
   weight: 'Heaviest',
@@ -9,6 +10,7 @@ const PR_LABEL: Record<PrType, string> = {
   e1rm: 'e1RM PR',
   setVolume: 'Set volume',
   sessionVolume: 'Session volume',
+  hold: 'Longest hold',
 }
 
 const PR_TITLE: Record<PrType, string> = {
@@ -17,6 +19,7 @@ const PR_TITLE: Record<PrType, string> = {
   e1rm: 'Highest session estimated 1RM so far',
   setVolume: 'Highest weight × reps in a single set',
   sessionVolume: 'Highest total weight × reps for this exercise in one workout',
+  hold: 'Longest hold so far on this timed exercise',
 }
 
 export function PrChip({ type }: { type: PrType }) {
@@ -35,6 +38,7 @@ function setText(pr: PrEvent, units: Units): string | null {
 
 function valueText(type: PrType, v: number, units: Units): string {
   if (type === 'reps') return `${formatNumber(v, { maxDecimals: 0 })} reps`
+  if (type === 'hold') return formatHold(v)
   if (type === 'setVolume' || type === 'sessionVolume') return formatWeight(v, units, { compact: true })
   return formatWeight(v, units)
 }
@@ -45,6 +49,10 @@ function describe(pr: PrEvent, units: Units): { value: string; detail: string | 
   if (pr.type === 'reps') {
     const at = pr.weightLb != null && pr.weightLb > 0 ? `at ${formatWeight(pr.weightLb, units)}` : 'bodyweight'
     return { value: valueText('reps', pr.value, units), detail: at }
+  }
+  if (pr.type === 'hold') {
+    const w = pr.weightLb != null && pr.weightLb > 0 ? `+${formatWeight(pr.weightLb, units)}` : null
+    return { value: valueText('hold', pr.value, units), detail: w }
   }
   if (pr.type === 'sessionVolume') return { value: valueText(pr.type, pr.value, units), detail: null }
   if (pr.type === 'weight') {

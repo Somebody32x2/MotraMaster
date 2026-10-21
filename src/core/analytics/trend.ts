@@ -1,6 +1,6 @@
-/** Session e1RM trend, rate of gain and status labels (research §3.4). */
+/** Session strength trend (e1RM or actual max), rate of gain and status labels (research §3.4). */
 import type { ExerciseCtx, Session } from './context.ts';
-import type { SeriesPoint, TrendStatus, Window } from './types.ts';
+import type { SeriesPoint, StrengthMetric, TrendStatus, Window } from './types.ts';
 import { addDays, DAY_MS, finiteOrNull, median, sliceRange } from './util.ts';
 
 const HALF_LIFE_DAYS = 21;
@@ -38,22 +38,22 @@ export function theilSen(points: SeriesPoint[]): number | null {
   return median(slopes);
 }
 
-/** Session e1RM points for the sessions that have one. */
-export function e1rmPoints(sessions: Session[]): SeriesPoint[] {
+/** Session points under the active strength metric, for the sessions that have one. */
+export function strengthPoints(sessions: Session[]): SeriesPoint[] {
   const out: SeriesPoint[] = [];
-  for (const s of sessions) if (s.e1rm) out.push({ date: s.date, value: s.e1rm.e1rm });
+  for (const s of sessions) if (s.strength) out.push({ date: s.date, value: s.strength.value });
   return out;
 }
 
 /**
- * %/month over the last 90 days of the window: Theil–Sen slope × 30.44 ÷ median e1RM × 100.
+ * %/month over the last 90 days of the window: Theil–Sen slope × 30.44 ÷ median session value × 100.
  * Needs ≥ 4 sessions spanning ≥ 21 days.
  */
 export function ratePerMonth(ex: ExerciseCtx, win: Window): number | null {
   const from90 = addDays(win.end, -RATE_DAYS);
   const start = win.start && win.start > from90 ? win.start : from90;
   const [a, b] = sliceRange(ex.sessionTimes, start, win.end);
-  const pts = e1rmPoints(ex.sessions.slice(a, b));
+  const pts = strengthPoints(ex.sessions.slice(a, b));
   if (pts.length < MIN_SESSIONS) return null;
   if ((pts[pts.length - 1].date.getTime() - pts[0].date.getTime()) / DAY_MS < MIN_SPAN_DAYS) return null;
   const slope = theilSen(pts);
@@ -63,24 +63,25 @@ export function ratePerMonth(ex: ExerciseCtx, win: Window): number | null {
 }
 
 /**
- * progressing (> +1%/mo), dip (< −1%/mo); otherwise plateau when no e1RM PR in
- * the last 5 sessions and none within 28 days, else progressing.
+ * progressing (> +1%/mo), dip (< −1%/mo); otherwise plateau when no PR of the active
+ * metric (e1RM PR, or weight PR for 'actual') in the last 5 sessions and none within 28 days, else progressing.
  */
-export function trendStatus(ex: ExerciseCtx, rate: number | null, win: Window): TrendStatus {
+export function trendStatus(ex: ExerciseCtx, rate: number | null, win: Window, metric: StrengthMetric): TrendStatus {
   if (rate === null) return 'insufficient';
   if (rate > FLAT_RATE) return 'progressing';
   if (rate < -FLAT_RATE) return 'dip';
   const [, b] = sliceRange(ex.sessionTimes, null, win.end);
+  const prType = ex.load.kind === 'timed' ? 'hold' : metric === 'actual' ? 'weight' : 'e1rm';
   const recentFrom = addDays(win.end, -28).getTime();
   for (let i = b - 1; i >= 0; i--) {
     const s = ex.sessions[i];
     if (b - i > 5 && s.date.getTime() < recentFrom) break;
-    if (s.prTypes.includes('e1rm')) return 'progressing';
+    if (s.prTypes.includes(prType)) return 'progressing';
   }
   return 'plateau';
 }
 
-/** Running all-time max of session e1RM (step line). */
+/** Running all-time max of the session series (step line). */
 export function prEnvelope(points: SeriesPoint[]): SeriesPoint[] {
   let max = 0;
   return points.map((p) => {

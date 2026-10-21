@@ -1,7 +1,8 @@
-import type { AnalysisIndex, SeriesPoint, Window } from '../../core/analytics/types'
+import type { AnalysisIndex, ExerciseSessionRow, LoadBasis, SeriesPoint, Window } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import type { LinePoint } from '../../ui/charts'
-import { formatNumber, toDisplayWeight, unitLabel } from '../../ui/format'
+import { formatNumber, formatWeight, toDisplayWeight, unitLabel } from '../../ui/format'
+import { formatHold, loadBasisText } from '../../ui/widgets'
 
 export function inWindow(d: Date, win: Window): boolean {
   const t = d.getTime()
@@ -76,3 +77,47 @@ export function exerciseCaveats(name: string): string[] {
   }
   return out
 }
+
+const BW_BASES: LoadBasis[] = ['bodyweightAdded', 'bodyweightIncluded', 'assisted']
+
+/** Logged set with its effective load spelled out: 'BW + 25 lb × 8 = 205 lb', '185 lb × 5'. */
+export function describeLoadedSet(
+  set: { weightLb: number | null; loadLb: number | null; loadBasis: LoadBasis; reps: number | null },
+  units: Units,
+): string {
+  const reps = set.reps != null && set.reps > 0 ? ` × ${formatNumber(set.reps, { maxDecimals: 0 })}` : ''
+  if (BW_BASES.includes(set.loadBasis)) {
+    if (set.loadBasis === 'bodyweightIncluded') return `${formatWeight(set.weightLb, units)} (incl. BW)${reps}`
+    const tag = loadBasisText(set.loadBasis, set.weightLb, units)
+    return set.loadLb != null && Number.isFinite(set.loadLb) ? `${tag}${reps} = ${formatWeight(set.loadLb, units)}` : `${tag}${reps}`
+  }
+  const w = set.loadLb ?? set.weightLb
+  if (w != null && w > 0) return `${formatWeight(w, units)}${reps}`
+  return reps ? `${formatNumber(set.reps, { maxDecimals: 0 })} reps` : '—'
+}
+
+/** Compact chip text: '185×5', 'BW+25×8', 'BW×10', 'BW−40×8', '1:30 hold', '1:00 +25 lb', '12 reps'. */
+export function setChipText(set: ExerciseSessionRow['sets'][number], units: Units): string {
+  const reps = set.reps != null && set.reps > 0 ? formatNumber(set.reps, { maxDecimals: 0 }) : null
+  if (set.holdSec != null && set.holdSec > 0) {
+    const w = set.loadLb ?? set.weightLb
+    return w != null && w > 0 ? `${formatHold(set.holdSec)} +${formatWeight(w, units)}` : `${formatHold(set.holdSec)} hold`
+  }
+  const w = set.weightLb != null && Number.isFinite(set.weightLb) ? set.weightLb : 0
+  const num = (n: number) => formatWeight(n, units, { unit: false })
+  switch (set.loadBasis) {
+    case 'bodyweightAdded':
+      return `BW${w > 0 ? `+${num(w)}` : w < 0 ? `−${num(-w)}` : ''}×${reps ?? '0'}`
+    case 'assisted':
+      return `BW−${num(Math.abs(w))}×${reps ?? '0'}`
+    default:
+      break
+  }
+  if (w > 0) return `${num(w)}×${reps ?? '0'}`
+  if (reps) return `${reps} reps`
+  if (set.durationSec != null && set.durationSec > 0) return formatHold(set.durationSec)
+  return '—'
+}
+
+/** Axis formatter for hold seconds: '45s', '1:30'. */
+export const holdFormat = (n: number) => formatHold(n)

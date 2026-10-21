@@ -15,7 +15,8 @@ import { buildDataset } from '../src/core/dataset.ts';
 import { displayLabel, normalizeKey, splitMuscles } from '../src/core/labels.ts';
 import { parseWorkbookDetailed } from '../src/core/parse.ts';
 import type { ParseVocabulary } from '../src/core/parse.ts';
-import { catalogLookup, explainMuscle, regionName, resolveMuscle } from '../src/core/regions.ts';
+import { catalogLookup, catalogSource, explainMuscle, regionName, resolveMuscle } from '../src/core/regions.ts';
+import type { CatalogSource } from '../src/core/regions.ts';
 import type { RegionId } from '../src/core/analytics/types.ts';
 import type { ParseWarning, Workout } from '../src/core/types.ts';
 
@@ -23,8 +24,9 @@ const HELP = `Usage: node scripts/catalog.ts <export.xlsx> [more.xlsx ...]
 
 Builds a privacy-safe vocabulary report of Motra workout exports. It leads
 with "Needs attention": muscle labels outside Motra's vocabulary, exercises
-missing from the bundled Motra library or whose muscles disagree with it,
-unrecognized labels/columns/units/effort values and parser warnings. A full
+missing from the bundled exercise libraries (Motra plus MotraMaster additions)
+or whose muscles disagree with them, unrecognized labels/columns/units/effort
+values and parser warnings. A full
 vocabulary listing follows. No weights, reps, notes or workout titles.
 
 Output (in the current directory):
@@ -174,25 +176,42 @@ function main(argv: string[]): number {
     return [{ raw: m.raw, key: m.key, via, regions: (Object.keys(regions) as RegionId[]).map(regionName), sets: m.count }];
   });
 
+  const LIBRARY_NAME: Record<CatalogSource, string> = { motra: 'Motra', extra: 'MotraMaster additions' };
+  type Mismatch = { display: string; library: string; exportMuscles: string[]; libraryPrimaries: string; sets: number };
   const notInLibrary: { display: string; muscleCells: string[]; sets: number }[] = [];
-  const mismatches: { display: string; exportMuscles: string[]; libraryPrimaries: string[]; sets: number }[] = [];
+  const mismatches: Mismatch[] = [];
+  const weakPrimaries: Mismatch[] = [];
   for (const e of vocabulary.exercises) {
-    const entry = catalogLookup(e.key) ?? e.rawNames.map(catalogLookup).find((c) => c !== null) ?? null;
-    if (entry === null) {
+    const name = [e.key, ...e.rawNames].find((n) => catalogLookup(n) !== null);
+    const entry = name === undefined ? null : catalogLookup(name);
+    const source = name === undefined ? null : catalogSource(name);
+    if (entry === null || source === null) {
       const cells = sortedCounts(exerciseCells[e.key] ?? {}).map((c) => c.value || '(empty)');
       notInLibrary.push({ display: e.display, muscleCells: cells, sets: e.sets });
       continue;
     }
-    const primaries = (Object.keys(entry.m) as RegionId[]).filter((id) => (entry.m[id] ?? 0) >= 8);
+    const weighted = (Object.keys(entry.m) as RegionId[])
+      .map((id) => ({ id, w: entry.m[id] ?? 0 }))
+      .sort((a, b) => b.w - a.w);
+    const primaries = weighted.filter((x) => x.w >= 8).map((x) => x.id);
     const exported = new Set<RegionId>();
     for (const k of e.muscles) for (const id of Object.keys(resolveMuscle(k)) as RegionId[]) exported.add(id);
     exported.delete('other');
     const agrees = exported.size === primaries.length && primaries.every((id) => exported.has(id));
-    if (!agrees) {
-      mismatches.push({ display: e.display, exportMuscles: e.muscles, libraryPrimaries: primaries.map(regionName), sets: e.sets });
+    if (agrees) continue;
+    const row = { display: e.display, library: LIBRARY_NAME[source], exportMuscles: e.muscles, sets: e.sets };
+    if (primaries.length > 0) {
+      mismatches.push({ ...row, libraryPrimaries: primaries.map(regionName).join(', ') });
+    } else {
+      const top = weighted.slice(0, 3).map((x) => `${regionName(x.id)} ${x.w}`).join(', ');
+      weakPrimaries.push({ ...row, libraryPrimaries: top ? `none ≥ 8 (${top})` : 'none ≥ 8' });
     }
   }
   const MISMATCH_CAP = 50;
+  const mismatchTable = (rows: Mismatch[]): string =>
+    table(['Exercise', 'Library', 'Export muscles', 'Library primaries', 'Sets'],
+      rows.slice(0, MISMATCH_CAP).map((m) => [m.display, m.library, m.exportMuscles.join(', ') || '(none)', m.libraryPrimaries, m.sets])) +
+    (rows.length > MISMATCH_CAP ? `\n_Showing ${MISMATCH_CAP} of ${rows.length}._\n` : '');
 
   const oddEffort = [
     ...vocabulary.setEffortValues.map((r) => ({ value: r.value, where: 'sets', count: r.count })),
@@ -202,7 +221,8 @@ function main(argv: string[]): number {
   const needsAttention = {
     unknownMuscleLabels: unknownMuscles,
     exercisesNotInLibrary: notInLibrary,
-    muscleMismatches: { total: mismatches.length, rows: mismatches.slice(0, MISMATCH_CAP) },
+    muscleMismatches: mismatches,
+    weakLibraryPrimaries: weakPrimaries,
     unknownSummaryLabels: vocabulary.unknownSummaryLabels,
     unknownColumns: vocabulary.unknownColumns,
     unexpectedUnits: vocabulary.units.filter((u) => !['lbs', 'ft', 'seconds'].includes(u.value.trim().toLowerCase())),
@@ -227,15 +247,14 @@ function main(argv: string[]): number {
       body: table(['Raw', 'Key', 'Via', 'Regions', 'Sets'], na.unknownMuscleLabels.map((m) => [m.raw || '(empty)', m.key, m.via, m.regions.join(', '), m.sets])),
     },
     {
-      title: 'Exercises not found in the Motra library',
+      title: 'Exercises not found in the Motra library or MotraMaster additions',
       count: na.exercisesNotInLibrary.length,
       body: table(['Exercise', 'Muscle cells seen', 'Sets'], na.exercisesNotInLibrary.map((e) => [e.display, e.muscleCells.join(' / '), e.sets])),
     },
     {
       title: 'Export muscles disagree with library primaries',
-      count: na.muscleMismatches.total,
-      body: table(['Exercise', 'Export muscles', 'Library primaries', 'Sets'], na.muscleMismatches.rows.map((m) => [m.display, m.exportMuscles.join(', ') || '(none)', m.libraryPrimaries.join(', ') || '(none)', m.sets])) +
-        (na.muscleMismatches.total > MISMATCH_CAP ? `\n_Showing ${MISMATCH_CAP} of ${na.muscleMismatches.total}._\n` : ''),
+      count: na.muscleMismatches.length,
+      body: mismatchTable(na.muscleMismatches),
     },
     {
       title: 'Unrecognized summary labels',
@@ -261,6 +280,11 @@ function main(argv: string[]): number {
       title: 'Parser warnings',
       count: na.warnings.length,
       body: table(['Message', 'Count'], na.warnings.map((r) => [r.value, r.count])),
+    },
+    {
+      title: 'Library has no strong primary (export used as-is)',
+      count: na.weakLibraryPrimaries.length,
+      body: mismatchTable(na.weakLibraryPrimaries),
     },
   ];
 

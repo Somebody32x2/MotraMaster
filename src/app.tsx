@@ -3,6 +3,7 @@ import { useEffect } from 'preact/hooks'
 import { displayLabel } from './core/labels'
 import { isRegionId, regionName } from './core/regions'
 import type { DetailLevel, ThemePref } from './core/types'
+import CalendarPage from './pages/CalendarPage'
 import ExerciseDetailPage from './pages/ExerciseDetailPage'
 import ExercisesPage from './pages/ExercisesPage'
 import ImportPage from './pages/ImportPage'
@@ -18,6 +19,7 @@ import { Segmented, type SegmentedOption } from './ui/components/Segmented'
 import { Skeleton } from './ui/components/Skeleton'
 import { formatRelative, plural } from './ui/format'
 import {
+  IconCalendar,
   IconExercises,
   IconImport,
   IconMoon,
@@ -43,13 +45,14 @@ const NAV_MAIN: NavItem[] = [
   { path: paths.muscles(), label: 'Muscles', icon: IconMuscles, match: ['muscles', 'muscle'] },
   { path: paths.exercises(), label: 'Exercises', icon: IconExercises, match: ['exercises', 'exercise'] },
   { path: paths.workouts(), label: 'Workouts', icon: IconWorkouts, match: ['workouts', 'workout'] },
+  { path: paths.calendar(), label: 'Calendar', icon: IconCalendar, match: ['calendar'] },
 ]
 
 const NAV_IMPORT: NavItem = { path: paths.import(), label: 'Import', icon: IconImport, match: ['import'] }
 const NAV_SETTINGS: NavItem = { path: paths.settings(), label: 'Settings', icon: IconSettings, match: ['settings'] }
 
 /** Pages that need a dataset; without one the onboarding/import view is shown instead. */
-const DATA_ROUTES: RouteName[] = ['overview', 'muscles', 'muscle', 'exercises', 'exercise', 'workouts', 'workout']
+const DATA_ROUTES: RouteName[] = ['overview', 'muscles', 'muscle', 'exercises', 'exercise', 'workouts', 'workout', 'calendar']
 
 const DETAIL_OPTIONS: SegmentedOption<DetailLevel>[] = [
   { value: 'normal', label: 'Normal', title: 'Essential statistics' },
@@ -115,13 +118,13 @@ function Sidebar() {
   )
 }
 
+/** Mobile: the five data sections; Import and Settings live in the top bar's action icons. */
 function TabBar() {
   return (
     <nav class="tabbar" aria-label="Main">
       {NAV_MAIN.map((item) => (
         <NavLink key={item.path} item={item} variant="tab" />
       ))}
-      <NavLink item={NAV_SETTINGS} variant="tab" />
     </nav>
   )
 }
@@ -134,6 +137,7 @@ const SECTION: Record<RouteName, { label: string; path: string }> = {
   exercise: { label: 'Exercises', path: paths.exercises() },
   workouts: { label: 'Workouts', path: paths.workouts() },
   workout: { label: 'Workouts', path: paths.workouts() },
+  calendar: { label: 'Calendar', path: paths.calendar() },
   import: { label: 'Import', path: paths.import() },
   settings: { label: 'Settings', path: paths.settings() },
 }
@@ -179,6 +183,15 @@ function TopBar({ showDataControls }: { showDataControls: boolean }) {
       <div class="topbar__actions">
         <a class="icon-btn" href={href(paths.import())} aria-label="Import" title="Import">
           <IconImport />
+        </a>
+        <a
+          class="icon-btn"
+          href={href(paths.settings())}
+          aria-label="Settings"
+          title="Settings"
+          aria-current={route.value.name === 'settings' ? 'page' : undefined}
+        >
+          <IconSettings />
         </a>
       </div>
       <div class="topbar__controls">
@@ -234,6 +247,8 @@ function Page({ onboarding }: { onboarding: boolean }) {
       return <WorkoutsPage />
     case 'workout':
       return <WorkoutDetailPage workoutId={params.id} />
+    case 'calendar':
+      return <CalendarPage />
     case 'import':
       return <ImportPage />
     case 'settings':

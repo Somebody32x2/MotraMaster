@@ -4,7 +4,7 @@ import type { Settings } from '../types.ts';
 import { getCtx, memo, windowSessions, type Ctx, type ExerciseCtx } from './context.ts';
 import { oneRmFormulas } from './e1rm.ts';
 import { liftFor } from './strength.ts';
-import { e1rmPoints, ewma, prEnvelope, ratePerMonth, trendStatus } from './trend.ts';
+import { ewma, prEnvelope, ratePerMonth, strengthPoints, trendStatus } from './trend.ts';
 import type {
   AnalysisIndex,
   EnrichedSet,
@@ -13,6 +13,8 @@ import type {
   ExerciseSummary,
   RegionId,
   RepMaxRow,
+  SessionStrength,
+  StrengthMetric,
   Window,
 } from './types.ts';
 import { addDays, bucket, finiteOrNull, median, shares, sliceRange } from './util.ts';
@@ -22,30 +24,40 @@ export const ZONE_BOUNDS = [0.6, 0.7, 0.8, 0.9];
 export const REP_BOUNDS = [6, 13, 21];
 export const REST_MAX = 600;
 
-export function summarize(ex: ExerciseCtx, win: Window): ExerciseSummary | null {
+export function summarize(ex: ExerciseCtx, win: Window, metric: StrengthMetric): ExerciseSummary | null {
   const [a, b] = sliceRange(ex.times, win.start, win.end);
   if (a >= b) return null;
   let hardSets = 0;
   let volumeLb = 0;
   let bestWeightLb: number | null = null;
   let bestE1rm: number | null = null;
+  let bestHoldSec: number | null = null;
   for (let i = a; i < b; i++) {
     const s = ex.sets[i];
     if (s.hard) hardSets++;
     volumeLb += s.volumeLb;
     if (s.weightLb !== null && s.weightLb > 0 && (bestWeightLb === null || s.weightLb > bestWeightLb)) bestWeightLb = s.weightLb;
+    if (s.holdSec !== null && s.holdSec > 0 && (bestHoldSec === null || s.holdSec > bestHoldSec)) bestHoldSec = s.holdSec;
   }
   const sessions = windowSessions(ex, win.start, win.end);
   let latestE1rm: number | null = null;
+  let latestStrength: SessionStrength | null = null;
+  let bestStrength: SessionStrength | null = null;
   for (const s of sessions) {
+    const st = s.strength;
+    if (st) {
+      latestStrength = st;
+      if (!bestStrength || st.value > bestStrength.value || (st.value === bestStrength.value && st.reps > bestStrength.reps)) bestStrength = st;
+    }
     if (!s.e1rm) continue;
     if (bestE1rm === null || s.e1rm.e1rm > bestE1rm) bestE1rm = s.e1rm.e1rm;
     latestE1rm = s.e1rm.e1rm;
   }
   const rate = ratePerMonth(ex, win);
-  const spark = ex.weighted
-    ? sessions.filter((s) => s.e1rm).map((s) => s.e1rm!.e1rm)
-    : sessions.map((s) => s.reps);
+  const valueUnit: ExerciseSummary['valueUnit'] = ex.load.kind === 'timed' ? 'sec' : ex.weighted ? 'lb' : 'reps';
+  const spark = valueUnit === 'reps'
+    ? sessions.map((s) => s.reps)
+    : sessions.filter((s) => s.strength).map((s) => s.strength!.value);
   const [, last] = sliceRange(ex.times, null, win.end);
   return {
     key: ex.key,
@@ -61,10 +73,16 @@ export function summarize(ex: ExerciseCtx, win: Window): ExerciseSummary | null 
     bestWeightLb,
     bestE1rm,
     latestE1rm,
+    metric,
+    latestStrength,
+    bestStrength,
     ratePerMonth: rate,
-    status: trendStatus(ex, rate, win),
+    status: trendStatus(ex, rate, win, metric),
     spark: spark.slice(-SPARK_POINTS),
     inCatalog: ex.catalog !== null,
+    load: ex.load,
+    valueUnit,
+    bestHoldSec,
   };
 }
 
@@ -73,7 +91,7 @@ export function exerciseSummaries(idx: AnalysisIndex, win: Window): ExerciseSumm
   return memo(ctx, 'exercises', win, () => {
     const out: ExerciseSummary[] = [];
     for (const ex of ctx.exercises.values()) {
-      const s = summarize(ex, win);
+      const s = summarize(ex, win, ctx.metric);
       if (s) out.push(s);
     }
     return out.sort((x, y) => y.sets - x.sets || y.sessions - x.sessions || x.name.localeCompare(y.name));
@@ -115,7 +133,7 @@ function fatigueDropoff(sessions: { sets: EnrichedSet[] }[]): number | null {
     const byWeight = new Map<number, EnrichedSet[]>();
     for (const s of sess.sets) {
       if (!s.hard || s.reps === null || s.reps < 1) continue;
-      const w = s.weightLb ?? 0;
+      const w = s.loadLb ?? 0;
       const arr = byWeight.get(w);
       if (arr) arr.push(s);
       else byWeight.set(w, [s]);
@@ -132,11 +150,26 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
   const ex = ctx.exercises.get(key) ?? ctx.exercises.get(normalizeKey(key));
   if (!ex) return null;
 
-  let summary = summarize(ex, win);
+  let summary = summarize(ex, win, ctx.metric);
   if (!summary) {
     // No sets in the window: keep identity fields from full history, zero the window counts.
-    const all = summarize(ex, { start: null, end: new Date(8.64e15) })!;
-    summary = { ...all, sets: 0, hardSets: 0, sessions: 0, volumeLb: 0, bestWeightLb: null, bestE1rm: null, latestE1rm: null, ratePerMonth: null, status: 'insufficient', spark: [] };
+    const all = summarize(ex, { start: null, end: new Date(8.64e15) }, ctx.metric)!;
+    summary = {
+      ...all,
+      sets: 0,
+      hardSets: 0,
+      sessions: 0,
+      volumeLb: 0,
+      bestWeightLb: null,
+      bestE1rm: null,
+      latestE1rm: null,
+      latestStrength: null,
+      bestStrength: null,
+      ratePerMonth: null,
+      status: 'insufficient',
+      spark: [],
+      bestHoldSec: null,
+    };
   }
 
   const sessions = windowSessions(ex, win.start, win.end);
@@ -144,9 +177,10 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
   const sets = ex.sets.slice(a, b);
 
   // Trend: EWMA and envelope run over full history, then clip to the window.
-  const allPoints = e1rmPoints(ex.sessions);
+  const allPoints = strengthPoints(ex.sessions);
   const inWin = (p: { date: Date }) => p.date.getTime() <= win.end.getTime() && (!win.start || p.date >= win.start);
   const sessionsE1rm = sessions.filter((s) => s.e1rm).map((s) => s.e1rm!);
+  const sessionsStrength = sessions.filter((s) => s.strength).map((s) => s.strength!);
   const trend = ewma(allPoints).filter(inWin);
   const envelope = prEnvelope(allPoints).filter(inWin);
   const upToEnd = allPoints.filter((p) => p.date.getTime() <= win.end.getTime());
@@ -156,9 +190,9 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
   const best: { w: number; date: Date }[] = Array.from({ length: 16 }, () => ({ w: 0, date: new Date(0) }));
   for (let i = 0; i < endIdx; i++) {
     const s = ex.sets[i];
-    if (s.weightLb === null || s.weightLb <= 0 || s.reps === null || s.reps < 1) continue;
+    if (s.loadLb === null || s.loadLb <= 0 || s.reps === null || s.reps < 1) continue;
     for (let r = 1; r <= Math.min(15, Math.floor(s.reps)); r++) {
-      if (s.weightLb > best[r].w) best[r] = { w: s.weightLb, date: s.date };
+      if (s.loadLb > best[r].w) best[r] = { w: s.loadLb, date: s.date };
     }
   }
   const from90 = addDays(win.end, -90);
@@ -166,7 +200,7 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
   let recentBest = 0;
   for (const s of recent) if (s.e1rm && s.e1rm.e1rm > recentBest) recentBest = s.e1rm.e1rm;
   const repMax: RepMaxRow[] = [];
-  if (ex.weighted) {
+  if (ex.weighted && ex.load.kind !== 'timed') {
     for (let r = 1; r <= 15; r++) {
       repMax.push({
         reps: r,
@@ -186,7 +220,7 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
     }
   }
   const formulas = basis
-    ? oneRmFormulas.map((f) => ({ name: f.name, key: f.key, value: f.fn(basis!.weightLb!, basis!.reps!) }))
+    ? oneRmFormulas.map((f) => ({ name: f.name, key: f.key, value: f.fn(basis!.loadLb!, basis!.reps!) }))
     : null;
 
   const rests: number[] = [];
@@ -204,7 +238,7 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
   const history: ExerciseSessionRow[] = sessions.map((s) => ({
     workoutId: s.workoutId,
     date: s.date,
-    sets: s.sets.map((x) => ({ weightLb: x.weightLb, reps: x.reps, e1rm: x.e1rm?.value ?? null, hard: x.hard, restSec: x.restSec, durationSec: x.durationSec })),
+    sets: s.sets.map((x) => ({ weightLb: x.weightLb, loadLb: x.loadLb, loadBasis: x.loadBasis, reps: x.reps, e1rm: x.e1rm?.value ?? null, hard: x.hard, restSec: x.restSec, durationSec: x.durationSec, holdSec: x.holdSec })),
     volumeLb: s.volumeLb,
     bestE1rm: s.e1rm?.e1rm ?? null,
     topWeightLb: s.topWeightLb,
@@ -225,6 +259,7 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
     secondaryRegions,
     delts: ex.catalog?.d ?? [],
     sessionsE1rm,
+    sessionsStrength,
     trend,
     prEnvelope: envelope,
     sessionVolume: sessions.map((s) => ({ date: s.date, value: s.volumeLb })),
@@ -232,7 +267,7 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
     prs: ex.prs.filter(inWin).reverse(),
     repMax,
     formulas,
-    formulasBasis: basis ? { weightLb: basis.weightLb!, reps: basis.reps!, date: basis.date } : null,
+    formulasBasis: basis ? { weightLb: basis.loadLb!, reps: basis.reps!, date: basis.date } : null,
     deltas: { d30: delta(upToEnd, 30), d90: delta(upToEnd, 90), d365: delta(upToEnd, 365) },
     medianRestSec: median(rests),
     medianSecPerRep: median(secPerRep),

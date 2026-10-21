@@ -17,7 +17,8 @@ import { Card } from '../../ui/components/Card'
 import { Segmented, type SegmentedOption } from '../../ui/components/Segmented'
 import { StatTile } from '../../ui/components/StatTile'
 import { formatDate, formatDuration, formatNumber, formatWeight, plural, toDisplayWeight, unitLabel } from '../../ui/format'
-import { PrList, TrendBadge } from '../../ui/widgets'
+import { settings } from '../../state'
+import { BwBadge, formatStrength, formatUnitValue, PrList, TrendBadge } from '../../ui/widgets'
 import { CardEmpty, Metric } from './parts'
 import { StrengthLiftList } from './RelativeStrength'
 import { BAND_COLOR, activeRange, bandOf, dayKey, isNum, mean, pctDelta, sum } from './util'
@@ -37,7 +38,8 @@ export function KpiRow({ stats, units, detailed }: { stats: OverviewStats; units
   const deltaLabel = prev ? `vs prior ${activeRange().label}` : undefined
   const avgVolume = stats.workouts > 0 ? stats.volumeLb / stats.workouts : null
   const avgHard = stats.workouts > 0 ? stats.hardSets / stats.workouts : null
-  const kcalPerMin = stats.calories > 0 && stats.durationSec > 0 ? stats.calories / (stats.durationSec / 60) : null
+  const rawSec = stats.durationSec + stats.trimmedSec
+  const kcalPerMin = stats.calories > 0 && rawSec > 0 ? stats.calories / (rawSec / 60) : null
   return (
     <div class="stats-row ov-span-12">
       <StatTile
@@ -70,6 +72,11 @@ export function KpiRow({ stats, units, detailed }: { stats: OverviewStats; units
         delta={pctDelta(stats.durationSec, prev?.durationSec)}
         deltaLabel={deltaLabel}
         sub={stats.avgDurationSec != null ? `${formatDuration(stats.avgDurationSec)} per session` : undefined}
+        hint={
+          stats.trimmedWorkouts > 0 && stats.trimmedSec > 0
+            ? `${formatDuration(stats.trimmedSec)} idle trimmed from ${plural(stats.trimmedWorkouts, 'workout')} that ran on after the last set. Change this in Settings.`
+            : undefined
+        }
       />
       {detailed && (
         <StatTile
@@ -299,11 +306,12 @@ export function TopLiftsCard({
 }) {
   const rows = lifts.slice(0, 6)
   const unit = unitLabel(units)
+  const actual = settings.value.strengthMetric === 'actual'
   return (
     <Card
       title="Top lifts"
-      subtitle="Latest estimated 1RM"
-      info="Estimated 1RM from your best set each session. The rate is the median change per month over the last 90 days (Theil–Sen), robust to one-off good or bad days."
+      subtitle={actual ? 'Latest heaviest set' : 'Latest estimated 1RM'}
+      info={`${actual ? 'The heaviest set you actually lifted each session, whatever the reps.' : 'Estimated 1RM from your best set each session.'} The rate is the median change per month over the last 90 days (Theil–Sen), robust to one-off good or bad days.`}
       actions={
         <a class="link" href={href(paths.exercises())}>
           All exercises
@@ -316,28 +324,31 @@ export function TopLiftsCard({
           {rows.map((l) => (
             <li key={l.key}>
               <div class="ov-lifts__name">
-                <a class="link" href={href(paths.exercise(l.key))}>
-                  {l.name}
-                </a>
+                <span class="ov-lifts__title">
+                  <a class="link" href={href(paths.exercise(l.key))}>
+                    {l.name}
+                  </a>
+                  <BwBadge load={l.load} />
+                </span>
                 <span class="faint">
                   {plural(l.sessions, 'session')}
-                  {detailed && l.bestE1rm != null ? ` · best ${formatWeight(l.bestE1rm, units)}` : ''}
+                  {detailed && l.bestStrength ? ` · best ${formatStrength(l.bestStrength, l.metric, units, l.valueUnit)}` : ''}
                 </span>
               </div>
-              <span class="ov-lifts__value num">{formatWeight(l.latestE1rm, units)}</span>
+              <span class="ov-lifts__value num">{formatStrength(l.latestStrength, l.metric, units, l.valueUnit)}</span>
               <Sparkline
                 class="ov-lifts__spark"
-                values={l.spark.map((v) => toDisplayWeight(v, units))}
+                values={l.valueUnit === 'lb' ? l.spark.map((v) => toDisplayWeight(v, units)) : l.spark}
                 width={84}
                 height={26}
-                valueFormat={(n) => `${formatNumber(n)} ${unit}`}
+                valueFormat={(n) => (l.valueUnit === 'lb' ? `${formatNumber(n)} ${unit}` : formatUnitValue(n, l.valueUnit, units))}
               />
               <TrendBadge status={l.status} ratePerMonth={l.ratePerMonth} />
             </li>
           ))}
         </ul>
       ) : (
-        <CardEmpty>Log a few weighted sets to start tracking estimated 1RMs.</CardEmpty>
+        <CardEmpty>Log a few weighted sets to start tracking {actual ? 'your heaviest sets' : 'estimated 1RMs'}.</CardEmpty>
       )}
     </Card>
   )

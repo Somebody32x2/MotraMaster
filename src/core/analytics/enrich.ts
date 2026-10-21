@@ -1,11 +1,12 @@
 /** buildIndex: enrich every set once per dataset + settings (research §3.3, §4.1). */
 import { displayLabel } from '../labels.ts';
 import { catalogLookup, deltHeadOf, REGION_ORDER, resolveMuscle, type CatalogEntry } from '../regions.ts';
-import type { Dataset, Settings } from '../types.ts';
+import type { Dataset, Settings, Workout } from '../types.ts';
 import { attachCtx, type Ctx, type ExerciseCtx, type Session, type WorkoutAgg } from './context.ts';
 import { estimateE1rm } from './e1rm.ts';
+import { effectiveLoad, exerciseLoadModel, type LoadSetInput } from './load.ts';
 import { detectPrs } from './prs.ts';
-import type { AnalysisIndex, EnrichedSet, PrEvent, RegionId, SessionE1rm } from './types.ts';
+import type { AnalysisIndex, EnrichedSet, ExerciseLoadModel, PrEvent, RegionId, SessionE1rm, SessionStrength, StrengthMetric } from './types.ts';
 import { DAY_MS, num, parseLocalIso } from './util.ts';
 
 type Credit = Partial<Record<RegionId, number>>;
@@ -61,12 +62,82 @@ function sessionE1rm(sets: EnrichedSet[], workoutId: string, date: Date): Sessio
     if ((sHigh && !bHigh) || (sHigh === bHigh && s.e1rm.value > best.e1rm!.value)) best = s;
   }
   if (!best?.e1rm) return null;
-  return { workoutId, date, e1rm: best.e1rm.value, confidence: best.e1rm.confidence, weightLb: best.weightLb ?? 0, reps: best.reps ?? 0 };
+  return { workoutId, date, e1rm: best.e1rm.value, confidence: best.e1rm.confidence, weightLb: best.loadLb ?? 0, reps: best.reps ?? 0 };
+}
+
+/** The session's heaviest set by effective load (> 0, not a 0-rep entry); ties → most reps. */
+function sessionActual(sets: EnrichedSet[], workoutId: string, date: Date): SessionStrength | null {
+  let best: EnrichedSet | null = null;
+  for (const s of sets) {
+    if (s.loadLb === null || s.loadLb <= 0 || (s.reps !== null && s.reps < 1)) continue;
+    if (!best || s.loadLb > best.loadLb! || (s.loadLb === best.loadLb && (s.reps ?? 0) > (best.reps ?? 0))) best = s;
+  }
+  if (!best) return null;
+  return { workoutId, date, value: best.loadLb!, weightLb: best.loadLb!, reps: best.reps ?? 0, e1rm: best.e1rm?.value ?? null, confidence: null, holdSec: null, loadBasis: best.loadBasis };
+}
+
+/** Timed exercises: the session's longest hold (ties → heavier load). */
+function sessionHold(sets: EnrichedSet[], workoutId: string, date: Date): SessionStrength | null {
+  let best: EnrichedSet | null = null;
+  for (const s of sets) {
+    if (s.holdSec === null || s.holdSec <= 0) continue;
+    if (!best || s.holdSec > best.holdSec! || (s.holdSec === best.holdSec && (s.loadLb ?? 0) > (best.loadLb ?? 0))) best = s;
+  }
+  if (!best) return null;
+  return { workoutId, date, value: best.holdSec!, weightLb: best.loadLb ?? 0, reps: best.reps ?? 0, e1rm: null, confidence: null, holdSec: best.holdSec, loadBasis: best.loadBasis };
+}
+
+export interface TrimResult {
+  rawDurationSec: number | null;
+  effectiveSec: number | null;
+  trimmedSec: number;
+}
+
+/**
+ * Idle-tail trimming. Active time = Σ set duration + Σ non-negative rest (rest between
+ * sets counts, so long mid-workout gaps survive). When raw > active + grace, the
+ * duration is capped at active + grace; otherwise it is left untouched.
+ */
+export function trimWorkout(w: Workout, sets: readonly { durationSec: number | null; restSec: number | null }[], trim: { enabled: boolean; graceSec: number }): TrimResult {
+  let raw = num(w.durationSec);
+  if (raw === null) {
+    const a = parseLocalIso(w.start);
+    const b = parseLocalIso(w.end);
+    if (a && b && b.getTime() >= a.getTime()) raw = (b.getTime() - a.getTime()) / 1000;
+  }
+  if (raw !== null && raw < 0) raw = null;
+  let active = 0;
+  for (const s of sets) {
+    const d = num(s.durationSec);
+    const r = num(s.restSec);
+    if (d !== null && d > 0) active += d;
+    if (r !== null && r > 0) active += r;
+  }
+  if (trim.enabled && raw !== null && active > 0 && raw > active + trim.graceSec) {
+    const effective = active + trim.graceSec;
+    return { rawDurationSec: raw, effectiveSec: effective, trimmedSec: raw - effective };
+  }
+  return { rawDurationSec: raw, effectiveSec: raw, trimmedSec: 0 };
 }
 
 export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
   const formula = settings.oneRmFormula ?? 'auto';
+  const metric: StrengthMetric = settings.strengthMetric === 'actual' ? 'actual' : 'e1rm';
+  const grace = num(settings.trimGraceMin);
+  const trim = { enabled: settings.trimIdle !== false, graceSec: Math.max(0, grace ?? 5) * 60 };
   const catCache = new Map<string, CatalogEntry | null>();
+  const bw = num(settings.bodyweightLb);
+  // Classify each exercise once from its name and all of its sets.
+  const loadInputs = new Map<string, LoadSetInput[]>();
+  for (const w of ds.workouts) {
+    for (const s of w.sets) {
+      let arr = loadInputs.get(s.exerciseKey);
+      if (!arr) loadInputs.set(s.exerciseKey, (arr = []));
+      arr.push({ weightLb: num(s.weightLb), reps: num(s.reps), durationSec: num(s.durationSec) });
+    }
+  }
+  const loadModels = new Map<string, ExerciseLoadModel>();
+  for (const [key, inputs] of loadInputs) loadModels.set(key, exerciseLoadModel(ds.exercises[key]?.name ?? displayLabel(key), inputs));
   const workoutDates = new Map<string, Date | null>();
   const workouts = new Map<string, WorkoutAgg>();
   const sets: EnrichedSet[] = [];
@@ -75,29 +146,34 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     const date = parseLocalIso(w.start);
     workoutDates.set(w.id, date);
     const ordered = [...w.sets].sort((a, b) => a.index - b.index);
-    const maxWeight = new Map<string, number>();
-    for (const s of ordered) {
-      const wt = num(s.weightLb);
-      if (wt !== null && wt > 0) maxWeight.set(s.exerciseKey, Math.max(maxWeight.get(s.exerciseKey) ?? 0, wt));
-    }
+    const loads = ordered.map((s) => effectiveLoad(loadModels.get(s.exerciseKey)!, num(s.weightLb), bw));
+    const maxLoad = new Map<string, number>();
+    ordered.forEach((s, i) => {
+      const l = loads[i].loadLb;
+      if (l !== null && l > 0) maxLoad.set(s.exerciseKey, Math.max(maxLoad.get(s.exerciseKey) ?? 0, l));
+    });
     const list: EnrichedSet[] = [];
     let prevKey: string | null = null;
-    for (const s of ordered) {
+    for (const [i, s] of ordered.entries()) {
       let cat = catCache.get(s.exerciseKey);
       if (cat === undefined) {
         cat = catalogLookup(s.exerciseKey) ?? catalogLookup(s.exerciseRaw);
         catCache.set(s.exerciseKey, cat);
       }
+      const model = loadModels.get(s.exerciseKey)!;
+      const { loadLb, loadBasis } = loads[i];
       const weightLb = num(s.weightLb);
       const reps = num(s.reps);
       const durationSec = num(s.durationSec);
       const effort = num(s.effort);
       const cardio = (num(s.distanceFt) ?? 0) > 0 && !(reps !== null && reps > 0);
       const performed = !cardio && ((reps !== null && reps >= 1) || (durationSec !== null && durationSec > 0));
+      const holdSec = model.kind === 'timed' && !cardio && durationSec !== null && durationSec > 0 ? durationSec : null;
       let hard = false;
       if (performed) {
         if (effort !== null) hard = effort >= 6;
-        else if (weightLb !== null && weightLb > 0) hard = weightLb >= 0.6 * (maxWeight.get(s.exerciseKey) ?? weightLb);
+        else if (model.kind === 'timed') hard = holdSec !== null && holdSec >= 10;
+        else if (loadLb !== null && loadLb > 0) hard = loadLb >= 0.6 * (maxLoad.get(s.exerciseKey) ?? loadLb);
         else hard = true;
       }
       const primary = primaryCredit(s.muscleKeys ?? [], cat);
@@ -115,8 +191,11 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
         secondary: secondaryCredit(cat, primary),
         hard,
         firstOfBlock: s.exerciseKey !== prevKey,
-        volumeLb: weightLb !== null && reps !== null && weightLb > 0 && reps > 0 ? weightLb * reps : 0,
-        e1rm: cardio || weightLb === null || reps === null ? null : estimateE1rm(weightLb, reps, effort, formula),
+        volumeLb: loadLb !== null && reps !== null && loadLb > 0 && reps > 0 ? loadLb * reps : 0,
+        e1rm: cardio || model.kind === 'timed' || loadLb === null || reps === null ? null : estimateE1rm(loadLb, reps, effort, formula),
+        loadLb,
+        loadBasis,
+        holdSec,
       };
       prevKey = s.exerciseKey;
       list.push(es);
@@ -141,6 +220,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
       exercises: new Set(list.map((s) => s.exerciseKey)).size,
       regionHard,
       prs: [],
+      ...trimWorkout(w, list, trim),
     });
   }
 
@@ -164,6 +244,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
         regionCredit: {},
         regions: [],
         weighted: false,
+        load: loadModels.get(s.exerciseKey)!,
         catalog: cat,
         rearShare: 0,
         prs: [],
@@ -173,12 +254,12 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     }
     ex.sets.push(s);
     ex.times.push(s.date.getTime());
-    if (s.weightLb !== null && s.weightLb > 0) ex.weighted = true;
+    if (s.loadLb !== null && s.loadLb > 0) ex.weighted = true;
     for (const [id, c] of Object.entries(s.primary) as [RegionId, number][]) ex.regionCredit[id] = (ex.regionCredit[id] ?? 0) + c;
     const sk = `${s.exerciseKey}\u0000${s.workoutId}`;
     let sess = sessionByKey.get(sk);
     if (!sess) {
-      sess = { exerciseKey: s.exerciseKey, workoutId: s.workoutId, date: s.date, sets: [], e1rm: null, volumeLb: 0, reps: 0, topWeightLb: null, prTypes: [], trail8Best: null };
+      sess = { exerciseKey: s.exerciseKey, workoutId: s.workoutId, date: s.date, sets: [], e1rm: null, volumeLb: 0, reps: 0, topWeightLb: null, prTypes: [], trail8Best: null, byMetric: { e1rm: null, actual: null }, strength: null };
       sessionByKey.set(sk, sess);
       ex.sessions.push(sess);
       ex.sessionTimes.push(s.date.getTime());
@@ -186,7 +267,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     sess.sets.push(s);
     sess.volumeLb += s.volumeLb;
     sess.reps += s.reps !== null && s.reps > 0 ? s.reps : 0;
-    if (s.weightLb !== null && s.weightLb > 0) sess.topWeightLb = Math.max(sess.topWeightLb ?? 0, s.weightLb);
+    if (s.loadLb !== null && s.loadLb > 0) sess.topWeightLb = Math.max(sess.topWeightLb ?? 0, s.loadLb);
   }
 
   const setPct = new Map<string, number>();
@@ -202,6 +283,18 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     for (let i = 0; i < ex.sessions.length; i++) {
       const sess = ex.sessions[i];
       sess.e1rm = sessionE1rm(sess.sets, sess.workoutId, sess.date);
+      const e = sess.e1rm;
+      const eBasis = e ? (sess.sets.find((s) => s.e1rm?.value === e.e1rm)?.loadBasis ?? 'external') : 'external';
+      if (ex.load.kind === 'timed') {
+        const hold = sessionHold(sess.sets, sess.workoutId, sess.date);
+        sess.byMetric = { e1rm: hold, actual: hold };
+      } else {
+        sess.byMetric = {
+          e1rm: e ? { workoutId: e.workoutId, date: e.date, value: e.e1rm, weightLb: e.weightLb, reps: e.reps, e1rm: e.e1rm, confidence: e.confidence, holdSec: null, loadBasis: eBasis } : null,
+          actual: sessionActual(sess.sets, sess.workoutId, sess.date),
+        };
+      }
+      sess.strength = sess.byMetric[metric];
       let best = 0;
       const from = sess.date.getTime() - 56 * DAY_MS;
       for (let j = i; j >= 0 && ex.sessions[j].date.getTime() >= from; j--) {
@@ -210,7 +303,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
       }
       sess.trail8Best = best > 0 ? best : null;
       if (best > 0) {
-        for (const s of sess.sets) if (s.weightLb !== null && s.weightLb > 0) setPct.set(s.setId, s.weightLb / best);
+        for (const s of sess.sets) if (s.loadLb !== null && s.loadLb > 0) setPct.set(s.setId, s.loadLb / best);
       }
     }
     ex.prs = detectPrs(ex);
@@ -249,9 +342,12 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     latestDate: dated.length ? dated[dated.length - 1].date : null,
     formula,
     bodyweightLb: num(settings.bodyweightLb),
+    strengthMetric: metric,
+    trim,
   };
   const ctx: Ctx = {
     ds,
+    metric,
     settings,
     sets,
     times,

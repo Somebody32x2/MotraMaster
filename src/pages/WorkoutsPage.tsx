@@ -44,7 +44,27 @@ function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
         </span>
       ),
     },
-    { id: 'duration', header: 'Duration', kind: 'number', value: (r) => r.durationSec, render: (r) => formatDuration(r.durationSec), priority: 2 },
+    {
+      id: 'duration',
+      header: 'Duration',
+      kind: 'number',
+      value: (r) => r.durationSec,
+      render: (r) =>
+        r.trimmedSec > 0 ? (
+          <span class="wo-dur">
+            {formatDuration(r.durationSec)}
+            <span
+              class="wo-dur__trim"
+              title={`Trimmed ${formatDuration(r.trimmedSec)} idle after the last set (logged ${formatDuration(r.rawDurationSec)})`}
+            >
+              trimmed
+            </span>
+          </span>
+        ) : (
+          formatDuration(r.durationSec)
+        ),
+      priority: 2,
+    },
     {
       id: 'hard',
       header: 'Hard sets',

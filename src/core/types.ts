@@ -106,6 +106,8 @@ export type ThemePref = 'system' | 'light' | 'dark';
 export type DetailLevel = 'normal' | 'detailed';
 export type OneRmFormula = 'auto' | 'epley' | 'brzycki' | 'lombardi' | 'mayhew' | 'wathan' | 'oconner';
 export type Sex = 'male' | 'female' | 'unspecified';
+/** Headline strength number per session: estimated 1RM, or the heaviest set actually lifted (any reps). */
+export type StrengthMetric = 'e1rm' | 'actual';
 
 export interface Settings {
   units: Units;
@@ -119,6 +121,11 @@ export interface Settings {
   sex: Sex;
   /** Birth year for age-adjusted comparisons; null when unset. */
   birthYear: number | null;
+  strengthMetric: StrengthMetric;
+  /** Cap a workout's duration at the logged sets' active time plus `trimGraceMin`, dropping idle time after the last set. */
+  trimIdle: boolean;
+  /** Minutes kept beyond the last set's active time when trimming (setup, cool-down). */
+  trimGraceMin: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -130,4 +137,7 @@ export const DEFAULT_SETTINGS: Settings = {
   heightCm: null,
   sex: 'unspecified',
   birthYear: null,
+  strengthMetric: 'e1rm',
+  trimIdle: true,
+  trimGraceMin: 5,
 };

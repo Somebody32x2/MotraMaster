@@ -16,7 +16,7 @@ import { PageHeader } from '../ui/components/PageHeader'
 import { StatTile } from '../ui/components/StatTile'
 import { formatDate, formatNumber, formatPercent, formatRelative, formatWeight, plural, toDisplayWeight, unitLabel } from '../ui/format'
 import { IconMuscles } from '../ui/icons'
-import { PrList, TrendBadge, VolumeBandBadge } from '../ui/widgets'
+import { BwBadge, formatHold, formatStrength, formatUnitValue, PrList, strengthBestLabel, TrendBadge, VolumeBandBadge } from '../ui/widgets'
 import { displayWeightFormat, repStatsByExercise, type RepStats } from './exercises/util'
 import { FRACTIONAL_INFO, FREQUENCY_INFO, TARGET_HI, TARGET_LO, WEEKLY_SETS_INFO } from './muscles/bands'
 import './muscles/muscles.css'
@@ -224,17 +224,36 @@ function StrengthIndexCard({ d }: { d: MuscleDetail }) {
 }
 
 function exerciseColumns(units: Units, repStats: Map<string, RepStats>, detailed: boolean): Column<ExerciseSummary>[] {
+  const metric = settings.value.strengthMetric
   const cols: Column<ExerciseSummary>[] = [
-    { id: 'name', header: 'Exercise', value: (e) => e.name, kind: 'label' },
+    {
+      id: 'name',
+      header: 'Exercise',
+      value: (e) => e.name,
+      kind: 'label',
+      render: (e) => (
+        <span class="ex-name">
+          <span class="ex-name__text">{e.name}</span>
+          <BwBadge load={e.load} />
+        </span>
+      ),
+    },
     { id: 'sets', header: 'Sets', value: (e) => e.sets, kind: 'number', title: 'All logged sets in range' },
     {
       id: 'best',
-      header: 'Best',
+      header: strengthBestLabel(metric),
       kind: 'number',
-      value: (e) => (e.weighted ? e.bestE1rm : null),
-      title: 'Best estimated 1RM, or most reps in a set for bodyweight work',
+      value: (e) => (e.valueUnit === 'lb' ? (e.bestStrength?.value ?? e.bestWeightLb) : null),
+      title:
+        metric === 'actual'
+          ? 'Heaviest weight actually lifted (with its reps), or most reps in a set for bodyweight work'
+          : 'Best estimated 1RM, or most reps in a set for bodyweight work',
       render: (e) => {
-        if (e.weighted) return e.bestE1rm != null ? formatWeight(e.bestE1rm, units) : formatWeight(e.bestWeightLb, units)
+        if (e.valueUnit === 'sec') {
+          const best = e.bestHoldSec ?? e.bestStrength?.holdSec ?? null
+          return best != null ? `${formatHold(best)} hold` : '—'
+        }
+        if (e.valueUnit === 'lb') return e.bestStrength ? formatStrength(e.bestStrength, metric, units) : formatWeight(e.bestWeightLb, units)
         const r = repStats.get(e.key)?.bestReps
         return r != null ? `${formatNumber(r, { maxDecimals: 0 })} reps` : '—'
       },
@@ -245,7 +264,14 @@ function exerciseColumns(units: Units, repStats: Map<string, RepStats>, detailed
       sortable: false,
       priority: 2,
       render: (e) => (
-        <Sparkline values={e.spark} width={88} height={24} trendColor ariaLabel={`${e.name} session trend`} />
+        <Sparkline
+          values={e.spark}
+          width={88}
+          height={24}
+          trendColor
+          valueFormat={(n) => formatUnitValue(n, e.valueUnit, units)}
+          ariaLabel={`${e.name} session trend`}
+        />
       ),
     },
     {

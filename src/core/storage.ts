@@ -133,6 +133,12 @@ export function loadSettings(): Settings {
     heightCm: positiveOrNull(r.heightCm, 300),
     sex: oneOf(r.sex, ['male', 'female', 'unspecified'], d.sex),
     birthYear: typeof year === 'number' && Number.isInteger(year) && year >= 1900 && year <= 2100 ? year : d.birthYear,
+    strengthMetric: oneOf(r.strengthMetric, ['e1rm', 'actual'], d.strengthMetric),
+    trimIdle: typeof r.trimIdle === 'boolean' ? r.trimIdle : d.trimIdle,
+    trimGraceMin:
+      typeof r.trimGraceMin === 'number' && Number.isFinite(r.trimGraceMin)
+        ? Math.min(60, Math.max(0, r.trimGraceMin))
+        : d.trimGraceMin,
   };
 }
 

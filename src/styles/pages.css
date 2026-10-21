@@ -655,3 +655,47 @@
     width: 100%;
   }
 }
+
+/* Settings: 1RM formula sub-heading inside the Strength card */
+.settings-formula-head {
+  margin-top: var(--s4);
+  margin-bottom: var(--s3);
+}
+
+/* Workouts list: trimmed-duration marker */
+.wo-dur {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s2);
+  white-space: nowrap;
+}
+
+.wo-dur__trim {
+  font-size: var(--fs-xs, 0.75rem);
+  color: var(--text-faint);
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
+
+/* ---------- Exercise load note ---------- */
+.load-note {
+  display: grid;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.load-note p {
+  margin: 0;
+}
+
+.load-note__reason {
+  font-size: var(--fs-xs);
+}
+
+.ov-lifts__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}

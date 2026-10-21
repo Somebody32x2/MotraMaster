@@ -1,12 +1,14 @@
-import type { EnrichedSet, PrType, WorkoutDetail } from '../../core/analytics/types'
+import type { EnrichedSet, LoadBasis, PrType, WorkoutDetail } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import { href, paths } from '../../router'
 import { Card } from '../../ui/components/Card'
 import { DataTable, type Column } from '../../ui/components/DataTable'
 import { formatDuration, formatNumber, formatRest, formatWeight, plural } from '../../ui/format'
-import { PrChip, RegionChips } from '../../ui/widgets'
+import { formatHold, LoadBasisTag, PrChip, RegionChips } from '../../ui/widgets'
 
 type Block = WorkoutDetail['blocks'][number]
+
+const BW_BASES = new Set<LoadBasis>(['bodyweightAdded', 'bodyweightIncluded', 'assisted', 'bodyweightUnknown'])
 
 interface SetRow {
   set: EnrichedSet
@@ -27,15 +29,20 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
       id: 'weight',
       header: 'Weight',
       align: 'right',
-      render: ({ set }) =>
-        set.weightLb == null ? '—' : set.weightLb > 0 ? formatWeight(set.weightLb, units) : <span class="faint">Bodyweight</span>,
+      render: ({ set }) => {
+        if (BW_BASES.has(set.loadBasis)) return <LoadBasisTag basis={set.loadBasis} weightLb={set.weightLb} loadLb={set.loadLb} units={units} />
+        return set.weightLb == null ? '—' : set.weightLb > 0 ? formatWeight(set.weightLb, units) : <span class="faint">Bodyweight</span>
+      },
     },
     {
       id: 'reps',
       header: 'Reps',
       align: 'right',
-      render: ({ set }) =>
-        set.reps != null ? formatNumber(set.reps, { maxDecimals: 0 }) : set.durationSec != null ? formatDuration(set.durationSec) : '—',
+      render: ({ set }) => {
+        if (set.reps != null && set.reps > 0) return formatNumber(set.reps, { maxDecimals: 0 })
+        if (set.holdSec != null && set.holdSec > 0) return `${formatHold(set.holdSec)} hold`
+        return set.reps != null ? formatNumber(set.reps, { maxDecimals: 0 }) : set.durationSec != null ? formatDuration(set.durationSec) : '—'
+      },
     },
   ]
   if (isDetailed) {

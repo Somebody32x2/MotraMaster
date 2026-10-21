@@ -1,0 +1,12 @@
+{
+  "Machine Tricep Press": { "m": { "triceps": 10, "chest": 6, "shoulders": 6, "abs": 2 }, "d": ["front"] },
+  "Machine Rear Delt (Reverse) Fly": { "m": { "shoulders": 10, "traps": 8, "lats": 5, "lowerBack": 2 }, "d": ["rear"] },
+  "Machine Tricep Extension": { "m": { "triceps": 10, "shoulders": 3, "forearms": 2 }, "d": ["front"] },
+  "Machine Hammer-Grip Shoulder Press": { "m": { "shoulders": 10, "triceps": 7, "traps": 4, "chest": 3, "abs": 2 }, "d": ["front", "side"] },
+  "Machine Lateral Raise": { "m": { "shoulders": 10, "traps": 4 }, "d": ["side"] },
+  "Machine Shoulder Press": { "m": { "shoulders": 10, "triceps": 7, "traps": 4, "chest": 3, "abs": 2 }, "d": ["front", "side"] },
+  "Ring Pull-Up": { "m": { "lats": 10, "biceps": 8, "traps": 6, "shoulders": 5, "forearms": 5, "abs": 4 }, "d": ["rear"] },
+  "Ab Rollout": { "m": { "abs": 10, "obliques": 7, "shoulders": 6, "lats": 5, "lowerBack": 4, "hipFlexors": 3 }, "d": ["front"] },
+  "Machine Overhead Tricep Extension": { "m": { "triceps": 10, "shoulders": 4, "abs": 2 }, "d": ["front"] },
+  "Bicycle Crunch": { "m": { "abs": 10, "obliques": 9, "hipFlexors": 6, "quads": 4 } }
+}

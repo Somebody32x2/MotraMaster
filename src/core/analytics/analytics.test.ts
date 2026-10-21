@@ -4,7 +4,10 @@ import { normalizeKey } from '../labels.ts';
 import { DEFAULT_SETTINGS, type Dataset, type SetRecord, type Settings, type Workout } from '../types.ts';
 import {
   buildIndex,
+  calendarStats,
+  effectiveLoad,
   estimateE1rm,
+  exerciseLoadModel,
   exerciseDetail,
   exerciseSummaries,
   muscleDetail,
@@ -257,6 +260,7 @@ describe('sparse data', () => {
     const win: Window = { start: new Date(2026, 9, 1), end: new Date(2026, 9, 20, 23, 59, 59, 999) };
     const all: Window = { start: null, end: win.end };
     for (const w of [win, all]) {
+      assertClean(calendarStats(idx, w));
       const o = overviewStats(idx, w);
       assertClean(o);
       expect(o.workouts).toBe(1);
@@ -272,5 +276,260 @@ describe('sparse data', () => {
     assertClean(strengthProfile(idx, settings));
     expect(workoutDetail(idx, 'missing')).toBeNull();
     expect(exerciseDetail(idx, 'missing', win, settings)).toBeNull();
+  });
+});
+
+describe('idle trimming', () => {
+  const timed = (rests: number[], dur = 30): SetSpec[] => rests.map((rest) => ({ ex: 'Barbell Bench Press', w: 100, r: 5, rest, dur }));
+  // Active time: 3 × 30 s + 0 + 120 + 120 = 330 s.
+  const tail = workout('tail', '2026-03-02T18:00:00', timed([0, 120, 120]), { durationSec: 3600, calories: 300 });
+  // A legit 30-min break mid-workout: active = 90 + 1800 + 120 = 2010 s; reported 2300 ≤ 2010 + 300.
+  const gap = workout('gap', '2026-03-04T18:00:00', timed([0, 1800, 120]), { durationSec: 2300 });
+  const untimed = workout('untimed', '2026-03-06T18:00:00', [{ ex: 'Barbell Bench Press', w: 100, r: 5 }], { durationSec: 3600 });
+  const fromEnd = workout('fromEnd', '2026-03-07T18:00:00', timed([0, 120, 120]), {
+    durationSec: null,
+    end: '2026-03-07T19:00:00',
+  });
+  const ds = dataset([tail, gap, untimed, fromEnd]);
+  const win: Window = { start: new Date(2026, 2, 1), end: new Date(2026, 2, 8, 23, 59, 59, 999) };
+  const byId = (settings: Settings) => new Map(workoutSummaries(buildIndex(ds, settings), win).map((w) => [w.workout.id, w]));
+
+  it('trims only the idle tail beyond the grace and keeps mid-workout gaps', () => {
+    const idx = buildIndex(ds, DEFAULT_SETTINGS);
+    expect(idx.trim).toEqual({ enabled: true, graceSec: 300 });
+    const w = byId(DEFAULT_SETTINGS);
+    expect(w.get('tail')).toMatchObject({ durationSec: 630, rawDurationSec: 3600, trimmedSec: 2970 });
+    expect(w.get('tail')!.density).toBeCloseTo(500 * 3 / (630 / 60), 6);
+    // Calories ÷ raw minutes: the idle time was still counted by the watch.
+    expect(w.get('tail')!.kcalPerMin).toBeCloseTo(300 / 60, 6);
+    expect(w.get('gap')).toMatchObject({ durationSec: 2300, rawDurationSec: 2300, trimmedSec: 0 });
+    expect(w.get('untimed')).toMatchObject({ durationSec: 3600, rawDurationSec: 3600, trimmedSec: 0 });
+    // Raw falls back to end − start when Total Duration is missing.
+    expect(w.get('fromEnd')).toMatchObject({ durationSec: 630, rawDurationSec: 3600, trimmedSec: 2970 });
+
+    const o = overviewStats(idx, win);
+    expect(o.trimmedSec).toBe(2970 * 2);
+    expect(o.trimmedWorkouts).toBe(2);
+    expect(o.durationSec).toBe(630 + 2300 + 3600 + 630);
+    expect(o.avgDurationSec).toBeCloseTo((630 + 2300 + 3600 + 630) / 4, 6);
+  });
+
+  it('respects the grace setting', () => {
+    expect(byId({ ...DEFAULT_SETTINGS, trimGraceMin: 0 }).get('tail')).toMatchObject({ durationSec: 330, trimmedSec: 3270 });
+    // 330 s + 60 min grace exceeds the reported hour: nothing to trim.
+    expect(byId({ ...DEFAULT_SETTINGS, trimGraceMin: 60 }).get('tail')).toMatchObject({ durationSec: 3600, trimmedSec: 0 });
+  });
+
+  it('leaves durations untouched when disabled', () => {
+    const settings: Settings = { ...DEFAULT_SETTINGS, trimIdle: false };
+    expect(buildIndex(ds, settings).trim.enabled).toBe(false);
+    const w = byId(settings);
+    expect(w.get('tail')).toMatchObject({ durationSec: 3600, rawDurationSec: 3600, trimmedSec: 0 });
+    expect(overviewStats(buildIndex(ds, settings), win).trimmedWorkouts).toBe(0);
+  });
+});
+
+describe('actual-max strength metric', () => {
+  const base = new Date(2026, 0, 5);
+  // Weight climbs while reps fall: e1RM drifts down, the heaviest lift goes up.
+  const climb = Array.from({ length: 8 }, (_, i) =>
+    workout(`c${i}`, isoDay(base, i * 7), [{ ex: 'Climb Press', w: 100 + 2 * i, r: 10 - i }, { ex: 'Climb Press', w: 80, r: 10 }]),
+  );
+  const tie = workout('tie', isoDay(base, 50), [
+    { ex: 'Tie Row', w: 110, r: 3 },
+    { ex: 'Tie Row', w: 110, r: 5 },
+    { ex: 'Tie Row', w: 100, r: 8 },
+    { ex: 'Tie Row', w: 120, r: 0 },
+  ]);
+  const ds = dataset([...climb, tie]);
+  const win: Window = { start: null, end: new Date(2026, 1, 25, 23, 59, 59) };
+  const e1rmSettings: Settings = { ...DEFAULT_SETTINGS, oneRmFormula: 'epley' };
+  const actualSettings: Settings = { ...e1rmSettings, strengthMetric: 'actual' };
+  const summaries = (settings: Settings) => new Map(exerciseSummaries(buildIndex(ds, settings), win).map((e) => [e.key, e]));
+
+  it('picks the heaviest set with ties broken by most reps', () => {
+    const idx = buildIndex(ds, actualSettings);
+    expect(idx.strengthMetric).toBe('actual');
+    const row = summaries(actualSettings).get('tie row')!;
+    expect(row.metric).toBe('actual');
+    expect(row.latestStrength).toMatchObject({ value: 110, weightLb: 110, reps: 5, confidence: null });
+    expect(row.latestStrength!.e1rm).toBeCloseTo(110 * (1 + 5 / 30), 6);
+    expect(row.spark).toEqual([110]);
+  });
+
+  it('drives spark, rate and status from the active metric', () => {
+    const e = summaries(e1rmSettings).get('climb press')!;
+    const a = summaries(actualSettings).get('climb press')!;
+    expect(e.metric).toBe('e1rm');
+    expect(e.status).toBe('dip');
+    expect(a.status).toBe('progressing');
+    expect(a.ratePerMonth!).toBeGreaterThan(1);
+    expect(a.spark).toEqual(climb.map((_, i) => 100 + 2 * i));
+    expect(e.spark[0]).toBeCloseTo(100 * (1 + 10 / 30), 6);
+    expect(a.bestStrength).toMatchObject({ value: 114, reps: 3 });
+    // e1RM-only fields stay e1RM under either metric.
+    expect(a.bestE1rm).toBeCloseTo(e.bestE1rm!, 6);
+
+    const d = exerciseDetail(buildIndex(ds, actualSettings), 'climb press', win, actualSettings)!;
+    expect(d.sessionsStrength.map((s) => s.value)).toEqual(a.spark);
+    expect(d.sessionsE1rm[0].e1rm).toBeCloseTo(100 * (1 + 10 / 30), 6);
+    expect(d.prEnvelope[d.prEnvelope.length - 1].value).toBe(114);
+    // Latest (day 49) vs the nearest session at/before day 19 → day 14 (104 lb).
+    expect(d.deltas.d30).toBeCloseTo(114 / 104 - 1, 6);
+  });
+});
+
+describe('calendar', () => {
+  const bench: SetSpec[] = [{ ex: 'Barbell Bench Press', w: 100, r: 5 }];
+  // 2026-03-02 is a Monday.
+  const ds = dataset([
+    workout('m1', '2026-03-02T09:30:00', bench),
+    workout('m2', '2026-03-02T18:00:00', bench),
+    workout('w1', '2026-03-04T07:00:00', bench, { calories: null }),
+    workout('m3', '2026-03-09T18:00:00', bench),
+  ]);
+  const idx = buildIndex(ds, DEFAULT_SETTINGS);
+  const win: Window = { start: new Date(2026, 2, 1), end: new Date(2026, 2, 10, 23, 59, 59, 999) };
+  const cal = calendarStats(idx, win);
+
+  it('spans first workout → window end with per-day metrics', () => {
+    expect(cal.days).toHaveLength(9);
+    expect(cal.days[0].date).toEqual(new Date(2026, 2, 2));
+    const mon = cal.days[0];
+    expect(mon.workoutIds).toEqual(['m1', 'm2']);
+    expect(mon.metrics).toMatchObject({ workouts: 2, volume: 1000, duration: 7200, hardSets: 2, calories: 600, exercises: 1, startHour: 9.5 });
+    expect(mon.metrics.density).toBeCloseTo(1000 / 120, 6);
+    expect(mon.metrics.kcalPerMin).toBeCloseTo(5, 6);
+    expect(mon.topRegions).toEqual(['chest']);
+    const tue = cal.days[1];
+    expect(tue.workoutIds).toEqual([]);
+    expect(tue.metrics.workouts).toBe(0);
+    for (const [k, v] of Object.entries(tue.metrics)) if (k !== 'workouts') expect(v).toBeNull();
+    expect(cal.days[2].metrics.calories).toBeNull();
+  });
+
+  it('assigns weekdays Monday = 0 with hit rates over calendar days', () => {
+    const [mon, tue, wed] = cal.weekdays;
+    expect(cal.weekdays).toHaveLength(7);
+    expect(mon).toMatchObject({ weekday: 0, workouts: 3, share: 0.75, hitRate: 1 });
+    expect(mon.avg.workouts).toBe(1.5);
+    expect(tue).toMatchObject({ weekday: 1, workouts: 0, hitRate: 0 });
+    expect(tue.avg.volume).toBeNull();
+    expect(wed).toMatchObject({ weekday: 2, workouts: 1, share: 0.25, hitRate: 1 });
+    expect(wed.avg.calories).toBeNull();
+    expect(cal.hours[18]).toBe(2);
+    expect(cal.hours[9]).toBe(1);
+    expect(cal.weekdayHour[0][18]).toBe(2);
+    expect(cal.weekdayHour[2][7]).toBe(1);
+  });
+
+  it('steps by calendar date across DST changes', () => {
+    const spring = dataset([workout('a', '2026-03-01T12:00:00', bench), workout('b', '2026-03-31T12:00:00', bench)]);
+    const s = calendarStats(buildIndex(spring, DEFAULT_SETTINGS), { start: null, end: new Date(2026, 2, 31, 23, 59, 59, 999) });
+    expect(s.days).toHaveLength(31);
+    s.days.forEach((d, i) => {
+      expect(d.date.getDate()).toBe(i + 1);
+      expect(d.date.getHours()).toBe(0);
+    });
+    const fall = dataset([workout('c', '2026-10-30T12:00:00', bench)]);
+    const f = calendarStats(buildIndex(fall, DEFAULT_SETTINGS), { start: new Date(2026, 9, 20), end: new Date(2026, 10, 5, 23, 59, 59, 999) });
+    expect(f.days.map((d) => d.date.getDate())).toEqual([30, 31, 1, 2, 3, 4, 5]);
+    expect(f.days.every((d) => d.date.getHours() === 0)).toBe(true);
+  });
+});
+
+describe('bodyweight and timed load model', () => {
+  const reps = (w: number | null, r: number | null, durationSec: number | null = null) => ({ weightLb: w, reps: r, durationSec });
+
+  it('classifies by name and data', () => {
+    expect(exerciseLoadModel('Dips', [reps(0, 10)])).toMatchObject({ kind: 'bodyweight', bodyweightFactor: 1, assisted: false });
+    for (const n of ['Pull-Up', 'Chin-Up', 'Hammer-Grip Pull-Up', 'Ring Pull-Up', 'Pullup']) {
+      expect(exerciseLoadModel(n, [reps(0, 8)])).toMatchObject({ kind: 'bodyweight', bodyweightFactor: 1 });
+    }
+    expect(exerciseLoadModel('Push-Up', [reps(0, 20)]).bodyweightFactor).toBe(0.64);
+    expect(exerciseLoadModel('Machine Assisted Pull-Up', [reps(40, 8)])).toMatchObject({ kind: 'bodyweight', bodyweightFactor: 1, assisted: true });
+    expect(exerciseLoadModel('Machine Seated Dip', [reps(150, 10)])).toMatchObject({ kind: 'weighted' });
+    expect(exerciseLoadModel('Plank', [reps(0, 1)])).toMatchObject({ kind: 'timed' });
+    expect(exerciseLoadModel('Ab Wheel Iso', [reps(0, 0, 30), reps(null, null, 40), reps(0, 10)])).toMatchObject({ kind: 'timed', reason: 'most sets have time but no reps' });
+    expect(exerciseLoadModel('Sit-Up', [reps(0, 20)])).toMatchObject({ kind: 'bodyweight', bodyweightFactor: null });
+    expect(exerciseLoadModel('Ab Rollout', [reps(0, 12), reps(null, 10)])).toMatchObject({ kind: 'bodyweight', bodyweightFactor: null });
+    expect(exerciseLoadModel('Barbell Bench Press', [reps(135, 5)])).toMatchObject({ kind: 'weighted', bodyweightFactor: null });
+  });
+
+  it('applies the bodyweight load rule at its boundaries', () => {
+    const dips = exerciseLoadModel('Dips', []);
+    const push = exerciseLoadModel('Push-Up', []);
+    const assisted = exerciseLoadModel('Assisted Dip', []);
+    expect(effectiveLoad(dips, 0, 200)).toEqual({ loadLb: 200, loadBasis: 'bodyweightAdded' });
+    expect(effectiveLoad(dips, null, 200)).toEqual({ loadLb: 200, loadBasis: 'bodyweightAdded' });
+    expect(effectiveLoad(dips, -30, 200)).toEqual({ loadLb: 170, loadBasis: 'bodyweightAdded' });
+    expect(effectiveLoad(dips, 98, 200)).toEqual({ loadLb: 298, loadBasis: 'bodyweightAdded' });
+    expect(effectiveLoad(dips, 100, 200)).toEqual({ loadLb: 100, loadBasis: 'bodyweightIncluded' });
+    expect(effectiveLoad(dips, 225, 200)).toEqual({ loadLb: 225, loadBasis: 'bodyweightIncluded' });
+    expect(effectiveLoad(push, 0, 200).loadLb).toBeCloseTo(128, 6);
+    expect(effectiveLoad(dips, 25, null)).toEqual({ loadLb: 25, loadBasis: 'bodyweightUnknown' });
+    expect(effectiveLoad(dips, 0, null)).toEqual({ loadLb: null, loadBasis: 'bodyweightUnknown' });
+    expect(effectiveLoad(assisted, 40, 200)).toEqual({ loadLb: 160, loadBasis: 'assisted' });
+    expect(effectiveLoad(assisted, -40, 200)).toEqual({ loadLb: 160, loadBasis: 'assisted' });
+    expect(effectiveLoad(assisted, 250, 200)).toEqual({ loadLb: 0, loadBasis: 'assisted' });
+    const sit = exerciseLoadModel('Sit-Up', []);
+    expect(effectiveLoad(sit, 0, 200)).toEqual({ loadLb: null, loadBasis: 'none' });
+    expect(effectiveLoad(sit, 10, 200)).toEqual({ loadLb: 10, loadBasis: 'external' });
+  });
+
+  it('uses the effective load for e1RM, volume and actual max on dips', () => {
+    const ds = dataset([
+      workout('d1', '2026-03-02T18:00:00', [{ ex: 'Dips', w: 0, r: 10 }, { ex: 'Dips', w: 25, r: 5 }]),
+      workout('d2', '2026-03-09T18:00:00', [{ ex: 'Dips', w: 185, r: 5 }]),
+    ]);
+    const bwSettings: Settings = { ...DEFAULT_SETTINGS, bodyweightLb: 180 };
+    const idx = buildIndex(ds, bwSettings);
+    const [plain, added] = idx.sets.filter((s) => s.workoutId === 'd1');
+    expect(plain).toMatchObject({ loadLb: 180, loadBasis: 'bodyweightAdded', volumeLb: 1800, holdSec: null });
+    expect(added).toMatchObject({ loadLb: 205, loadBasis: 'bodyweightAdded', volumeLb: 1025 });
+    expect(added.e1rm!.value).toBeCloseTo(estimateE1rm(205, 5, null, 'auto')!.value, 6);
+    const included = idx.sets.find((s) => s.workoutId === 'd2')!;
+    expect(included).toMatchObject({ loadLb: 185, loadBasis: 'bodyweightIncluded' });
+
+    const sum = exerciseSummaries(idx, ALL).find((e) => e.name === 'Dips')!;
+    expect(sum).toMatchObject({ weighted: true, valueUnit: 'lb', bestWeightLb: 185, bestHoldSec: null });
+    expect(sum.load).toMatchObject({ kind: 'bodyweight', bodyweightFactor: 1 });
+    const actual = buildIndex(ds, { ...bwSettings, strengthMetric: 'actual' });
+    expect(exerciseSummaries(actual, ALL).find((e) => e.name === 'Dips')!.bestStrength).toMatchObject({ value: 205, weightLb: 205, reps: 5, loadBasis: 'bodyweightAdded' });
+    const detail = exerciseDetail(idx, sum.key, ALL, bwSettings)!;
+    expect(detail.history[1].sets[0]).toMatchObject({ weightLb: 0, loadLb: 180, loadBasis: 'bodyweightAdded', holdSec: null });
+
+    // Without bodyweight the zero-weight set has no load.
+    const noBw = buildIndex(ds, DEFAULT_SETTINGS).sets.find((s) => s.workoutId === 'd1')!;
+    expect(noBw).toMatchObject({ loadLb: null, loadBasis: 'bodyweightUnknown', volumeLb: 0, e1rm: null });
+  });
+
+  it('tracks planks by longest hold with hold and weight PRs', () => {
+    const base = new Date(2026, 0, 5);
+    const plank = (w: number, dur: number): SetSpec => ({ ex: 'Plank', w, r: 0, dur, muscles: ['abs'] });
+    const ds = dataset([
+      workout('p0', isoDay(base, 0), [plank(0, 30), plank(0, 25)]),
+      workout('p1', isoDay(base, 7), [plank(0, 45), plank(0, 5)]),
+      workout('p2', isoDay(base, 14), [plank(25, 40)]),
+      workout('p3', isoDay(base, 21), [plank(0, 60), plank(35, 30)]),
+    ]);
+    const idx = buildIndex(ds, { ...DEFAULT_SETTINGS, bodyweightLb: 180 });
+    const sets = idx.sets.filter((s) => s.exerciseKey === normalizeKey('Plank'));
+    expect(sets.map((s) => s.holdSec)).toEqual([30, 25, 45, 5, 40, 60, 30]);
+    expect(sets.map((s) => s.hard)).toEqual([true, true, true, false, true, true, true]);
+    expect(sets.every((s) => s.e1rm === null && s.volumeLb === 0)).toBe(true);
+    expect(sets[4]).toMatchObject({ loadLb: 25, loadBasis: 'external' });
+
+    const sum = exerciseSummaries(idx, ALL).find((e) => e.name === 'Plank')!;
+    expect(sum).toMatchObject({ valueUnit: 'sec', bestHoldSec: 60, weighted: true, spark: [30, 45, 40, 60] });
+    expect(sum.load.kind).toBe('timed');
+    expect(sum.latestStrength).toMatchObject({ value: 60, holdSec: 60, weightLb: 0, loadBasis: 'none' });
+
+    const prs = idx.prs.filter((p) => p.exerciseName === 'Plank').map((p) => [p.workoutId, p.type, p.value, p.previous]);
+    expect(prs).toEqual([
+      ['p1', 'hold', 45, 30],
+      ['p3', 'weight', 35, 25],
+      ['p3', 'hold', 60, 45],
+    ]);
   });
 });
