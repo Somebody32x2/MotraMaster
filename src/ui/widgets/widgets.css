@@ -1,0 +1,229 @@
+/* ---------- Trend badge ---------- */
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.trend-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.trend-badge__rate {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.trend-badge--progressing {
+  background: color-mix(in srgb, var(--pos) 12%, transparent);
+  color: var(--pos);
+}
+
+.trend-badge--dip {
+  background: color-mix(in srgb, var(--neg) 12%, transparent);
+  color: var(--neg);
+}
+
+.trend-badge--plateau {
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  color: var(--warn);
+}
+
+.trend-badge--insufficient {
+  background: transparent;
+  color: var(--text-faint);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* ---------- Volume band badge ---------- */
+.band-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+
+.band-badge--low {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-muted);
+}
+
+.band-badge--moderate {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+.band-badge--target {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.band-badge--high {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
+}
+
+/* ---------- Region chips ---------- */
+.region-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.region-chip {
+  /* Sits above table row-link overlays so the chip stays clickable. */
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  font-size: var(--fs-xs);
+  font-weight: 550;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  text-decoration: none;
+}
+
+a.region-chip:hover {
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.region-chip--more {
+  color: var(--text-faint);
+  background: transparent;
+}
+
+/* ---------- PR chip & list ---------- */
+.pr-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pr-chip--reps,
+.pr-chip--setVolume,
+.pr-chip--sessionVolume {
+  color: var(--text-muted);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.pr-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pr-list__row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pr-list__row:last-child {
+  border-bottom: 0;
+}
+
+.pr-list__date {
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pr-list__date:hover {
+  color: var(--accent);
+}
+
+.pr-list__main {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.pr-list__exercise {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+  color: var(--text);
+}
+
+.pr-list__exercise:hover {
+  color: var(--accent);
+}
+
+.pr-list__value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pr-list__now {
+  font-weight: 600;
+}
+
+.pr-list__prev {
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.pr-list__detail {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.pr-list__empty {
+  padding: var(--s4) 0;
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 719px) {
+  .pr-list__row {
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: var(--s2);
+  }
+  .pr-list__prev {
+    display: none;
+  }
+}

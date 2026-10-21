@@ -10,6 +10,12 @@
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
     <script>
+      // The proxy serves this page at both /MotraMaster and /MotraMaster/; only the
+      // latter is inside the service worker's scope, so normalize to it.
+      ;(function () {
+        var base = '%BASE_URL%'
+        if (base.length > 1 && location.pathname + '/' === base) location.replace(base + location.search + location.hash)
+      })()
       // Apply the saved theme before first paint to avoid a flash.
       ;(function () {
         try {

@@ -1,6 +1,7 @@
 import type { ComponentType } from 'preact'
 import { useEffect } from 'preact/hooks'
 import { displayLabel } from './core/labels'
+import { isRegionId, regionName } from './core/regions'
 import type { DetailLevel, ThemePref } from './core/types'
 import ExerciseDetailPage from './pages/ExerciseDetailPage'
 import ExercisesPage from './pages/ExercisesPage'
@@ -141,7 +142,7 @@ const SECTION: Record<RouteName, { label: string; path: string }> = {
 function detailTitle(): string | null {
   const { name, params } = route.value
   const ds = dataset.value
-  if (name === 'muscle') return ds?.muscles[params.key]?.name ?? displayLabel(params.key)
+  if (name === 'muscle') return isRegionId(params.key) ? regionName(params.key) : displayLabel(params.key)
   if (name === 'exercise') return ds?.exercises[params.key]?.name ?? displayLabel(params.key)
   if (name === 'workout') return ds?.workouts.find((w) => w.id === params.id)?.title ?? 'Workout'
   return null

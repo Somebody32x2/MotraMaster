@@ -1,0 +1,300 @@
+/* ---------- Muscles overview ---------- */
+.muscles-layout {
+  display: grid;
+  gap: var(--s4);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .muscles-layout {
+    grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  }
+  .muscles-layout__map {
+    position: sticky;
+    top: calc(var(--topbar-h) + var(--s4));
+  }
+}
+
+/* Ranked list (table semantics via ARIA roles, grid layout) */
+.mlist {
+  --mlist-cols: minmax(110px, 1.1fr) minmax(150px, 2fr) 84px 64px 104px minmax(0, 1.3fr);
+  font-size: var(--fs-base);
+}
+
+.mlist--detailed {
+  --mlist-cols: minmax(110px, 1.1fr) minmax(140px, 1.7fr) 84px 64px 64px 84px 104px minmax(0, 1.2fr);
+}
+
+.mlist__head,
+.mlist__row {
+  display: grid;
+  grid-template-columns: var(--mlist-cols);
+  align-items: center;
+  gap: var(--s3);
+  padding: 0 var(--s5);
+}
+
+.mlist__head {
+  padding-top: 6px;
+  padding-bottom: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border);
+}
+
+.mlist__head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.mlist__head .mlist__num {
+  justify-content: flex-end;
+}
+
+.mlist__row {
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 120ms var(--ease);
+}
+
+.mlist__row:last-child {
+  border-bottom: 0;
+}
+
+.mlist__row.is-hot {
+  background: var(--surface-2);
+}
+
+.mlist__name {
+  min-width: 0;
+}
+
+.mlist__link {
+  font-weight: 550;
+  color: var(--text);
+}
+
+.mlist__link:hover {
+  color: var(--accent);
+}
+
+.mlist__sets {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.mlist__sets-n {
+  min-width: 3ch;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mlist__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mlist__last {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.mlist__top {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+}
+
+.mlist__toplink {
+  color: var(--text-muted);
+}
+
+.mlist__toplink:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 1280px) {
+  .mlist,
+  .mlist--detailed {
+    --mlist-cols: minmax(100px, 1fr) minmax(130px, 1.6fr) 84px 64px 100px;
+  }
+  .mlist--detailed {
+    --mlist-cols: minmax(100px, 1fr) minmax(120px, 1.4fr) 84px 60px 60px 80px 100px;
+  }
+  .mlist__top {
+    display: none;
+  }
+}
+
+@media (max-width: 719px) {
+  .mlist,
+  .mlist--detailed {
+    --mlist-cols: minmax(90px, 1fr) minmax(100px, 1.3fr) 76px;
+  }
+  .mlist__head,
+  .mlist__row {
+    padding: 0 var(--s4);
+    gap: var(--s2);
+  }
+  .mlist__opt,
+  .mlist__last {
+    display: none;
+  }
+}
+
+/* Weekly-sets bar with the 10–20 band behind it */
+.sets-bar {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  min-width: 48px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.sets-bar__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.sets-bar__fill {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.sets-bar__fill--low {
+  background: color-mix(in srgb, var(--accent) 35%, var(--surface-2));
+}
+
+.sets-bar__fill--moderate {
+  background: color-mix(in srgb, var(--accent) 60%, var(--surface-2));
+}
+
+.sets-bar__fill--high {
+  background: var(--warn);
+}
+
+/* Unmapped / raw labels */
+.label-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.label-list__item {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-muted);
+}
+
+.unmapped {
+  margin-top: var(--s4);
+}
+
+.unmapped__details summary {
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  color: var(--text-muted);
+}
+
+.unmapped__details summary:hover {
+  color: var(--text);
+}
+
+/* ---------- Muscle detail ---------- */
+.detail-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.muscle-detail__map {
+  width: 200px;
+  max-width: 40vw;
+}
+
+.chart-note {
+  margin-top: var(--s2);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.paired {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paired__row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(60px, 1fr) 44px;
+  align-items: center;
+  gap: var(--s3);
+  font-size: var(--fs-sm);
+}
+
+.paired__row a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 550;
+}
+
+.paired__row a:hover {
+  color: var(--accent);
+}
+
+.share-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.share-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.paired__pct {
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

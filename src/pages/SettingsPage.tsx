@@ -1,7 +1,11 @@
 import type { ComponentChildren } from 'preact'
+import { useMemo } from 'preact/hooks'
+import { analysisIndex } from '../analysis'
+import { strengthProfile } from '../core/analytics'
 import type { OneRmFormula, Sex, ThemePref, Units } from '../core/types'
 import { href, paths } from '../router'
 import { clearData, dataset, settings, updateSettings } from '../state'
+import { Badge } from '../ui/components/Badge'
 import { Card } from '../ui/components/Card'
 import { ConfirmButton } from '../ui/components/ConfirmButton'
 import { NumberField } from '../ui/components/NumberField'
@@ -12,6 +16,7 @@ import { Toggle } from '../ui/components/Toggle'
 import {
   cmToFtIn,
   formatDate,
+  formatNumber,
   formatRelative,
   fromDisplayWeight,
   ftInToCm,
@@ -20,6 +25,7 @@ import {
   unitLabel,
 } from '../ui/format'
 import { IconFile, IconMoon, IconSun, IconSystem, IconTrash } from '../ui/icons'
+import { StrengthLiftList } from './overview/RelativeStrength'
 
 const UNIT_OPTIONS: SegmentedOption<Units>[] = [
   { value: 'lb', label: 'Pounds (lb)' },
@@ -200,6 +206,83 @@ function Unlocks() {
   )
 }
 
+/** WHO adult BMI bands (research §5.4). */
+function bmiBand(bmi: number): string {
+  if (bmi < 18.5) return 'Underweight'
+  if (bmi < 25) return 'Normal'
+  if (bmi < 30) return 'Overweight'
+  return 'Obese'
+}
+
+function ProfileReadout() {
+  const s = settings.value
+  const idx = analysisIndex.value
+  const profile = useMemo(() => (idx ? strengthProfile(idx, s) : null), [idx, s])
+  const heightM = s.heightCm != null ? s.heightCm / 100 : null
+  const bmi =
+    profile?.bmi ?? (s.bodyweightLb != null && heightM != null && heightM > 0 ? (s.bodyweightLb * 0.45359237) / (heightM * heightM) : null)
+  const hasBmi = bmi != null && Number.isFinite(bmi)
+  const lifts = profile?.lifts ?? []
+  const dots = profile?.dots ?? null
+  const gl = profile?.ipfGl ?? null
+  const basis = (b: 'total' | 'bench') => (b === 'total' ? 'squat + bench + deadlift' : 'bench only')
+  const dotsNeeds =
+    s.bodyweightLb == null || s.sex === 'unspecified'
+      ? 'Needs bodyweight and sex.'
+      : idx
+        ? 'Needs a recent, reliable estimated 1RM for bench press (or squat, bench and deadlift).'
+        : 'Import workouts to see this.'
+
+  return (
+    <Card title="Your profile" subtitle="Calculated from your body metrics and estimated 1RMs, at your current bodyweight.">
+      <Setting
+        label="BMI"
+        desc="Weight ÷ height², with WHO adult bands. It can’t tell muscle from fat, so it often labels muscular people as overweight — treat it as a rough guide."
+      >
+        {hasBmi ? (
+          <p class="row">
+            <span class="num ov-big">{formatNumber(bmi, { decimals: 1 })}</span>
+            <Badge>{bmiBand(bmi)}</Badge>
+          </p>
+        ) : (
+          <p class="faint">Needs bodyweight and height.</p>
+        )}
+      </Setting>
+      <Setting
+        label="Relative strength"
+        desc="Best recent estimated 1RM ÷ bodyweight. Levels are approximate Strength Level standards and appear once sex is set."
+      >
+        {s.bodyweightLb == null ? (
+          <p class="faint">Needs bodyweight.</p>
+        ) : lifts.length ? (
+          <StrengthLiftList lifts={lifts} units={s.units} />
+        ) : (
+          <p class="faint">
+            {idx ? 'No bench press, squat, deadlift or overhead press with an estimated 1RM yet.' : 'Import workouts to see this.'}
+          </p>
+        )}
+      </Setting>
+      <Setting label="DOTS" desc="A bodyweight-adjusted powerlifting score, estimated from your e1RMs rather than meet lifts.">
+        {dots ? (
+          <div class="stack" style={{ '--gap': 'var(--s1)' }}>
+            <p class="row">
+              <span class="num ov-big">{formatNumber(dots.value, { decimals: 1 })}</span>
+              <span class="faint">{basis(dots.basis)}</span>
+            </p>
+            {gl && (
+              <p class="faint">
+                IPF GL <span class="num">{formatNumber(gl.value, { decimals: 1 })}</span> ({basis(gl.basis)})
+              </p>
+            )}
+          </div>
+        ) : (
+          <p class="faint">{dotsNeeds}</p>
+        )}
+      </Setting>
+    </Card>
+  )
+}
+
 export default function SettingsPage() {
   const s = settings.value
   const ds = dataset.value
@@ -292,6 +375,8 @@ export default function SettingsPage() {
           <Unlocks />
         </Setting>
       </Card>
+
+      <ProfileReadout />
 
       <Card title="Data" subtitle="Stored in this browser only. Clearing site data in your browser also removes it.">
         {ds ? (

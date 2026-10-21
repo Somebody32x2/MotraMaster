@@ -124,7 +124,7 @@ export interface ExerciseSummary {
   /** Theil–Sen %/month over the last 90 days; null when insufficient. */
   ratePerMonth: number | null;
   status: TrendStatus;
-  /** Session e1RMs (or session volume if unweighted), oldest → newest, for sparklines. */
+  /** Session e1RMs (or total session reps if unweighted), oldest → newest, for sparklines. */
   spark: number[];
   /** Matched in the bundled Motra catalog. */
   inCatalog: boolean;
@@ -168,6 +168,7 @@ export interface ExerciseDetail extends ExerciseSummary {
   /** Every formula applied to the best recent set (Detailed). */
   formulas: { name: string; key: Exclude<OneRmFormula, 'auto'>; value: number }[] | null;
   formulasBasis: { weightLb: number; reps: number; date: Date } | null;
+  /** Latest session e1RM vs the nearest session at/before 30/90/365 days earlier, as a fraction (0.05 = +5%). */
   deltas: { d30: number | null; d90: number | null; d365: number | null };
   medianRestSec: number | null;
   medianSecPerRep: number | null;
