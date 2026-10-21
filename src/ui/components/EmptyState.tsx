@@ -3,20 +3,17 @@ import type { ComponentChildren } from 'preact'
 export interface EmptyStateProps {
   title: ComponentChildren
   children?: ComponentChildren
+  /** Not rendered: empty states carry no illustration. */
   icon?: ComponentChildren
   action?: ComponentChildren
-  /** No dashed frame (for use inside cards). */
+  /** Tighter spacing for use inside a block. */
   plain?: boolean
 }
 
-export function EmptyState({ title, children, icon, action, plain }: EmptyStateProps) {
+/** One sentence and at most one action, left-aligned, unboxed. */
+export function EmptyState({ title, children, action, plain }: EmptyStateProps) {
   return (
     <div class={plain ? 'empty empty--plain' : 'empty'}>
-      {icon != null && (
-        <div class="empty__icon" aria-hidden="true">
-          {icon}
-        </div>
-      )}
       <p class="empty__title">{title}</p>
       {children != null && <div class="empty__body">{children}</div>}
       {action != null && <div class="empty__action">{action}</div>}

@@ -4,7 +4,7 @@ import type { OneRmFormula, Units } from '../../core/types'
 import { paths } from '../../router'
 import { Card } from '../../ui/components/Card'
 import { DataTable, type Column } from '../../ui/components/DataTable'
-import { formatDate, formatNumber, formatPercent, formatWeight, plural, unitLabel } from '../../ui/format'
+import { formatDate, formatNumber, formatPercent, formatWeight, unitLabel } from '../../ui/format'
 import { formatHold, loadBasisTitle, PrChip } from '../../ui/widgets'
 import { describeLoadedSet, setChipText } from './util'
 
@@ -20,7 +20,7 @@ export function RepMaxCard({ d, units, detailed }: { d: ExerciseDetail; units: U
       id: 'reps',
       header: 'Reps',
       sortable: false,
-      render: (r) => <span class="num">{plural(r.reps, 'rep')}</span>,
+      render: (r) => <span class="num">{r.reps}</span>,
     },
     {
       id: 'actual',
@@ -34,7 +34,7 @@ export function RepMaxCard({ d, units, detailed }: { d: ExerciseDetail; units: U
             {r.actualDate && <span class="cell-2__sub">{formatDate(r.actualDate, 'short')}</span>}
           </span>
         ) : (
-          <span class="faint">—</span>
+          <span class="faint">–</span>
         ),
     },
     {
@@ -44,7 +44,7 @@ export function RepMaxCard({ d, units, detailed }: { d: ExerciseDetail; units: U
       sortable: false,
       title: 'From your current estimated 1RM via inverse Epley: e1RM ÷ (1 + reps/30)',
       render: (r) => {
-        if (r.predictedLb == null) return <span class="faint">—</span>
+        if (r.predictedLb == null) return <span class="faint">–</span>
         const chance = r.actualLb == null || r.predictedLb > r.actualLb * OPPORTUNITY_MARGIN
         return (
           <span
@@ -63,16 +63,11 @@ export function RepMaxCard({ d, units, detailed }: { d: ExerciseDetail; units: U
       header: '% 1RM',
       kind: 'number',
       sortable: false,
-      render: (r) => (r.predictedLb != null ? formatPercent(r.predictedLb / oneRm, { decimals: 0 }) : '—'),
+      render: (r) => (r.predictedLb != null ? formatPercent(r.predictedLb / oneRm, { decimals: 0 }) : <span class="faint">–</span>),
     })
   }
   return (
-    <Card
-      flush
-      title="Rep maxes"
-      subtitle="What you have lifted for each rep count, and what your current e1RM predicts you could"
-      info="Highlighted predictions exceed your best for that rep count. Predictions get less reliable above 10 reps (Reynolds 2006)."
-    >
+    <Card flush title="Rep maxes" subtitle="Best lifted per rep count, and what your current e1RM predicts. Highlighted: a likely rep PR.">
       <DataTable
         columns={cols}
         rows={rows}
@@ -194,7 +189,7 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
       ) : null,
   })
   return (
-    <Card flush title="Session history" subtitle={`${plural(d.history.length, 'session')} in range · faded sets are warm-ups`}>
+    <Card flush title="Session history" subtitle="Faded sets are warm-ups.">
       <DataTable
         columns={cols}
         rows={d.history}
@@ -235,7 +230,7 @@ export function FormulasCard({ d, units, formula }: { d: ExerciseDetail; units: 
       header: 'vs mean',
       kind: 'number',
       sortable: false,
-      render: (r) => (mean ? formatPercent(r.value / mean - 1, { sign: true, decimals: 1 }) : '—'),
+      render: (r) => (mean ? formatPercent(r.value / mean - 1, { sign: true, decimals: 1 }) : <span class="faint">–</span>),
     },
   ]
   return (

@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact'
 import { useMemo, useState } from 'preact/hooks'
 import { compareLabels } from '../../core/labels'
 import { navigate, href as toHref } from '../../router'
+import { EMPTY } from '../format'
 import { IconSortAsc, IconSortDesc } from '../icons'
 
 export type SortValue = number | string | null | undefined
@@ -182,7 +183,7 @@ export function DataTable<T>({
                     }
                   >
                     {columns.map((c, ci) => {
-                      const content = c.render ? c.render(row) : (c.value?.(row) ?? '—')
+                      const content = c.render ? c.render(row) : (c.value?.(row) ?? <span class="faint">{EMPTY}</span>)
                       return (
                         <td key={c.id} class={cellClass(c)}>
                           {ci === 0 && link != null ? (

@@ -40,6 +40,8 @@ export interface BarChartProps {
   orientation?: 'vertical' | 'horizontal';
   /** Names of the stack segments; shown in legend and tooltip. */
   stackLabels?: string[];
+  /** Colors for stack segments by index (e.g. a ramp for ordered categories); defaults to the palette. */
+  stackColors?: string[];
   /** Shaded guideline range on the value axis (e.g. 10–20 weekly sets). */
   targetBand?: BarTargetBand;
   valueFormat?: (n: number) => string;
@@ -95,7 +97,7 @@ function roundedBar(x0: number, y0: number, x1: number, y1: number, radius: numb
   }
 }
 
-function buildRows(data: BarDatum[]): Row[] {
+function buildRows(data: BarDatum[], stackColors: string[] | undefined): Row[] {
   return data.map((datum) => {
     const raw = Array.isArray(datum.values) ? datum.values : [datum.values];
     const values = raw.map((v) => (isFiniteNumber(v) ? v : 0));
@@ -105,7 +107,7 @@ function buildRows(data: BarDatum[]): Row[] {
     let neg = 0;
     values.forEach((value, stack) => {
       if (value === 0) return;
-      const color = stacked ? paletteColor(stack) : (datum.color ?? paletteColor(0));
+      const color = stacked ? (stackColors?.[stack] ?? paletteColor(stack)) : (datum.color ?? paletteColor(0));
       if (value > 0) {
         segments.push({ stack, value, from: pos, to: pos + value, color, cap: false });
         pos += value;
@@ -123,13 +125,14 @@ function buildRows(data: BarDatum[]): Row[] {
 }
 
 const ROW_H = 28;
-const BAR_RADIUS = 3;
+const BAR_RADIUS = 2;
 
 export function BarChart(props: BarChartProps) {
   const {
     data,
     orientation = 'vertical',
     stackLabels,
+    stackColors,
     targetBand,
     onBarClick,
     emptyText = DEFAULT_EMPTY_TEXT,
@@ -138,7 +141,7 @@ export function BarChart(props: BarChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const width = useWidth(wrapRef);
   const [active, setActive] = useState<number | null>(null);
-  const rows = useMemo(() => buildRows(data), [data]);
+  const rows = useMemo(() => buildRows(data, stackColors), [data, stackColors]);
 
   const band =
     targetBand && isFiniteNumber(targetBand.lo) && isFiniteNumber(targetBand.hi)
@@ -148,7 +151,7 @@ export function BarChart(props: BarChartProps) {
   const height = horizontal ? 10 + (band?.label ? 16 : 0) + Math.max(1, rows.length) * ROW_H + 6 : (props.height ?? 220);
   const legend =
     stackLabels && stackLabels.length > 1 ? (
-      <Legend items={stackLabels.map((label, i) => ({ key: `s${i}`, label, color: paletteColor(i) }))} />
+      <Legend items={stackLabels.map((label, i) => ({ key: `s${i}`, label, color: stackColors?.[i] ?? paletteColor(i) }))} />
     ) : null;
 
   let body: JSX.Element;
@@ -255,7 +258,7 @@ export function BarChart(props: BarChartProps) {
             </g>
           )}
           {activeIdx !== null && (
-            <rect class="mm-bar-hover-bg" x={0} y={plotT + activeIdx * ROW_H} width={width} height={ROW_H} rx={4} />
+            <rect class="mm-bar-hover-bg" x={0} y={plotT + activeIdx * ROW_H} width={width} height={ROW_H} rx={2} />
           )}
           <g class={`mm-bars${activeIdx !== null ? ' has-active' : ''}`}>
             {rows.map((r, i) => {
@@ -364,7 +367,7 @@ export function BarChart(props: BarChartProps) {
               y={plotT}
               width={Math.max(1, slot - 2)}
               height={plotB - plotT}
-              rx={4}
+              rx={2}
             />
           )}
           <g class={`mm-bars${activeIdx !== null ? ' has-active' : ''}`}>
@@ -438,7 +441,7 @@ export function BarChart(props: BarChartProps) {
               {activeRow.values.map((v, i) => (
                 <TooltipRow
                   key={i}
-                  color={paletteColor(i)}
+                  color={stackColors?.[i] ?? paletteColor(i)}
                   label={stackLabels?.[i] ?? `Series ${i + 1}`}
                   value={valueFormat(v)}
                 />

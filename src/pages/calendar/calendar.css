@@ -1,31 +1,31 @@
 /* ---------- Calendar page ---------- */
 
-/* Shared 5-step accent scale (days, weekday swatches, weekday × hour cells). */
+/* Shared 5-step accent ramp (days, weekday swatches, weekday × hour cells). */
 .cal-day--l1 {
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+  background: var(--ramp-1);
 }
 .cal-day--l2 {
-  background: color-mix(in srgb, var(--accent) 36%, var(--surface-2));
+  background: var(--ramp-2);
 }
 .cal-day--l3 {
-  background: color-mix(in srgb, var(--accent) 56%, var(--surface-2));
+  background: var(--ramp-3);
 }
 .cal-day--l4 {
-  background: color-mix(in srgb, var(--accent) 78%, var(--surface-2));
+  background: var(--ramp-4);
 }
 .cal-day--l5 {
-  background: var(--accent);
+  background: var(--ramp-5);
 }
 .cal-day--l0,
 .cal-day--rest {
   background: var(--surface-2);
 }
 .cal-day--na {
-  background: var(--surface);
+  background: transparent;
 }
 .cal-day.cal-day--na,
 .cal-swatch.cal-day--na {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+  border-color: var(--border-strong);
   border-style: dashed;
 }
 
@@ -35,14 +35,14 @@
   width: 10px;
   height: 10px;
   border: 1px solid transparent;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* Month grids */
 .cal-months {
   position: relative;
   display: grid;
-  gap: var(--s5);
+  gap: var(--s6) var(--s5);
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
 }
 
@@ -65,6 +65,13 @@
   white-space: nowrap;
 }
 
+/* Metric picker: compact select in the block header. */
+.cal-picker .select {
+  width: auto;
+  height: 30px;
+  font-size: var(--fs-sm);
+}
+
 .cal-month__meta {
   font-size: var(--fs-xs);
   text-align: right;
@@ -81,12 +88,10 @@
 }
 
 .cal-grid__wd {
-  padding-bottom: 2px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  padding-bottom: 4px;
+  font-size: 11px;
+  font-weight: 500;
   text-align: center;
-  text-transform: uppercase;
   color: var(--text-faint);
   overflow: hidden;
   white-space: nowrap;
@@ -101,14 +106,14 @@
   min-width: 0;
   padding: 3px 4px;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   font: inherit;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   text-align: left;
   overflow: hidden;
-  transition: box-shadow 120ms var(--ease);
+  transition: box-shadow 150ms var(--ease);
 }
 
 button.cal-day {
@@ -131,15 +136,14 @@ button.cal-day.cal-day--rest {
 
 .cal-day--out {
   background: transparent;
-  border-color: var(--border);
-  border-style: dashed;
   color: var(--text-faint);
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 .cal-day__num {
+  font-family: var(--font-mono);
   font-size: 11px;
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .cal-day--rest .cal-day__num {
@@ -150,8 +154,9 @@ button.cal-day.cal-day--rest {
   position: absolute;
   top: 3px;
   right: 4px;
+  font-family: var(--font-mono);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 500;
   opacity: 0.8;
 }
 
@@ -160,8 +165,9 @@ button.cal-day.cal-day--rest {
   align-self: flex-end;
   max-width: 100%;
   overflow: hidden;
+  font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
   text-overflow: clip;
 }
@@ -190,11 +196,11 @@ button.cal-day:focus-visible {
 }
 
 .cal-day.is-latest {
-  box-shadow: 0 0 0 1.5px var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--text-muted);
 }
 
 .cal-day.is-today {
-  box-shadow: inset 0 0 0 2px var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--text);
 }
 
 .cal-day.is-open {
@@ -222,7 +228,7 @@ button.cal-day:focus-visible {
   display: block;
   overflow: hidden;
   color: var(--text);
-  font-weight: 550;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -257,9 +263,8 @@ button.cal-day:focus-visible {
   z-index: 16;
   padding: var(--s2);
   background: var(--surface);
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-float);
   font-size: var(--fs-sm);
   animation: mm-tooltip-in 120ms ease-out;
 }
@@ -273,6 +278,7 @@ button.cal-day:focus-visible {
   display: block;
   padding: 6px;
   border-radius: var(--radius-sm);
+  color: var(--text);
 }
 
 .cal-pop__list a:hover,
@@ -325,30 +331,35 @@ button.cal-day:focus-visible {
 }
 
 /* ---------- Day-of-week panel ---------- */
+/* Reads as a plain table: muted header, --grid hairlines, a thin hit-rate rule with no track. */
 .wd-row {
   display: grid;
   grid-template-columns: minmax(140px, 1fr) minmax(120px, 1.4fr) 88px 120px minmax(0, 1.8fr);
   grid-template-areas: 'day hit count avg regions';
   align-items: center;
-  gap: var(--s3);
-  min-height: 46px;
-  padding: 6px var(--s5);
-  border-bottom: 1px solid var(--border);
+  gap: var(--s4);
+  min-height: 44px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--grid);
+  transition: background-color 150ms var(--ease);
 }
 
 .wd-row:last-child {
   border-bottom: 0;
 }
 
+.wd-row:not(.wd-row--head):hover {
+  background: var(--surface-2);
+}
+
 .wd-row--head {
   min-height: 0;
   padding-top: 0;
   padding-bottom: 8px;
+  border-bottom-color: var(--border);
   font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .wd-row--head > span {
@@ -373,29 +384,32 @@ button.cal-day:focus-visible {
   grid-area: regions;
 }
 
-.wd-row.is-top {
-  background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
-}
-
 .wd-day {
   grid-area: day;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--s2);
   min-width: 0;
-  font-weight: 600;
+  font-weight: 500;
+}
+
+.wd-top {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
 }
 
 .wd-row.is-empty .wd-day {
   color: var(--text-faint);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .wd-hit {
   grid-area: hit;
   display: flex;
   align-items: center;
-  gap: var(--s2);
+  gap: var(--s3);
   min-width: 0;
 }
 
@@ -403,30 +417,31 @@ button.cal-day:focus-visible {
   position: relative;
   flex: 1;
   min-width: 40px;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--surface-2);
+  height: 2px;
 }
 
 .wd-bar__fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 3px;
   background: var(--accent);
 }
 
 .wd-hit__pct {
   flex: none;
-  min-width: 3.5ch;
+  min-width: 4ch;
   font-size: var(--fs-sm);
   text-align: right;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .wd-num {
+  font-size: var(--fs-sm);
   text-align: right;
   white-space: nowrap;
+}
+
+.wd-row--head .wd-num {
+  font-size: var(--fs-xs);
 }
 
 .wd-row > .wd-num:nth-child(3) {
@@ -462,18 +477,21 @@ button.cal-day:focus-visible {
       'hit hit hit'
       'regions regions regions';
     row-gap: 8px;
-    padding: 10px var(--s4);
+    padding: 10px 0;
+  }
+
+  .wd-row:not(.wd-row--head):hover {
+    background: transparent;
   }
 
   .wd-num[data-label]::before {
     content: attr(data-label);
     display: block;
     margin-bottom: 2px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-faint);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    color: var(--text-muted);
   }
 
   .wd-avg[data-label] {
@@ -483,11 +501,9 @@ button.cal-day:focus-visible {
   .wd-hit[data-label]::before {
     content: attr(data-label);
     flex: none;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-faint);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    color: var(--text-muted);
   }
 
   .wd-avg .cal-swatch {
@@ -497,6 +513,23 @@ button.cal-day:focus-visible {
 
   .wd-row.is-empty .wd-regions {
     display: none;
+  }
+}
+
+/* Start times beside weekday × hour (Detailed): 5 / 7. */
+.cal-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--block-gap) var(--s6);
+}
+
+.cal-split > * {
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .cal-split {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   }
 }
 
@@ -528,10 +561,8 @@ button.cal-day:focus-visible {
 
 .wdh-wd {
   align-self: center;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-faint);
   overflow: hidden;
   white-space: nowrap;
@@ -540,7 +571,7 @@ button.cal-day:focus-visible {
 .wdh-cell {
   aspect-ratio: 1;
   min-height: 10px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .wdh-cell.is-zero {

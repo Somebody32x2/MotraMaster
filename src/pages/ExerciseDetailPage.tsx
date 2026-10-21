@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact'
 import { useMemo } from 'preact/hooks'
 import { analysisIndex, analysisWindow } from '../analysis'
 import { exerciseDetail, oneRmFormulas } from '../core/analytics'
@@ -8,10 +9,10 @@ import { href, paths } from '../router'
 import { dataset, detailed, settings } from '../state'
 import { BodyMap } from '../ui/bodymap'
 import type { LinePoint } from '../ui/charts'
-import { Badge } from '../ui/components/Badge'
 import { Card } from '../ui/components/Card'
 import { EmptyState } from '../ui/components/EmptyState'
 import { PageHeader } from '../ui/components/PageHeader'
+import { StatStrip } from '../ui/components/StatStrip'
 import { StatTile } from '../ui/components/StatTile'
 import { formatDate, formatDuration, formatNumber, formatWeight, plural, unitLabel } from '../ui/format'
 import { IconExercises, IconInfo } from '../ui/icons'
@@ -24,9 +25,6 @@ import './exercises/exercises.css'
 
 const ESTIMATE_CAVEAT =
   'Estimates assume sets taken close to failure; without effort ratings they are a lower bound. They can be 10% off for an individual and tend to overshoot for novices.'
-
-const TREND_INFO =
-  'Theil–Sen slope of session e1RM over the last 90 days. Needs 4+ sessions spanning 21+ days; ±1%/month counts as a plateau.'
 
 function formulaLabel(formula: OneRmFormula): string {
   if (formula === 'auto') return 'Auto: Epley/Brzycki mean ≤10 reps, Wathan 11–15'
@@ -73,10 +71,10 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
   if (!d) {
     return (
       <>
-        <PageHeader eyebrow="Exercise" title={title} back={back} />
+        <PageHeader title={title} back={back} />
         <EmptyState icon={<IconExercises size={20} />} title={known ? 'No sets in this range' : 'Unknown exercise'}>
           {known
-            ? 'This exercise was not logged in the selected range. Choose a longer range in the top bar.'
+            ? 'This exercise was not logged in the selected range. Choose a longer range above.'
             : 'This exercise is not in your imported data.'}
         </EmptyState>
       </>
@@ -96,11 +94,10 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
   return (
     <>
       <PageHeader
-        eyebrow="Exercise"
         title={d.name}
         back={back}
         actions={
-          <div class="exercise-detail__map">
+          <div class="ex-map">
             <BodyMap
               values={primary}
               secondary={secondary}
@@ -120,17 +117,18 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
               <RegionChips regions={secondaryOnly} max={isDetailed ? undefined : 3} />
             </span>
           )}
-          {d.load.kind === 'bodyweight' && <Badge>Bodyweight</Badge>}
-          {d.load.kind === 'timed' && <Badge>Timed hold</Badge>}
-          {isDetailed && (
-            <Badge tone={d.inCatalog ? 'accent' : 'neutral'} title={d.inCatalog ? 'Secondary muscles from the bundled Motra catalog' : 'Custom or renamed exercise: muscles come from the export only'}>
-              {d.inCatalog ? 'In Motra catalog' : 'Not in catalog'}
-            </Badge>
-          )}
         </div>
-        {isDetailed && d.muscleRaw.length > 0 && (
+        <p class="ex-head__meta">{headMeta(d)}</p>
+        {isDetailed && (
           <p class="ex-head__raw faint">
-            Export muscles: <span class="mono">{d.muscleRaw.join(', ')}</span>
+            <span title={d.inCatalog ? 'Secondary muscles from the bundled Motra catalog' : 'Custom or renamed exercise: muscles come from the export only'}>
+              {d.inCatalog ? 'In the Motra catalog' : 'Not in the Motra catalog'}
+            </span>
+            {d.muscleRaw.length > 0 && (
+              <>
+                . Export muscles: <span class="mono">{d.muscleRaw.join(', ')}</span>
+              </>
+            )}
           </p>
         )}
       </PageHeader>
@@ -156,43 +154,60 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
   )
 }
 
+/** One muted line under the title: load kind, sessions and sets, date span. */
+function headMeta(d: ExerciseDetail): string {
+  const parts: string[] = []
+  if (d.load.kind === 'bodyweight') parts.push('Bodyweight')
+  else if (d.load.kind === 'timed') parts.push('Timed hold')
+  parts.push(`${plural(d.sessions, 'session')}, ${plural(d.sets, 'set')}`)
+  if (d.firstDate && d.lastDate) {
+    const first = formatDate(d.firstDate, 'medium')
+    const last = formatDate(d.lastDate, 'medium')
+    parts.push(first === last ? first : `${first} to ${last}`)
+  }
+  return parts.join(' · ')
+}
+
 const pct = (f: number) => `${Math.round(f * 100)}%`
 
-/** 'How load is counted' note for bodyweight and timed exercises. */
+/** 'How load is counted' callout for bodyweight and timed exercises. */
 function LoadNote({ d, bodyweightLb, units }: { d: ExerciseDetail; bodyweightLb: number | null; units: Units }) {
   const { kind, bodyweightFactor: f, assisted, reason } = d.load
   let body
   if (kind === 'timed') {
-    body = <p>Progress is your longest hold; added weight is tracked too.</p>
+    body = 'Progress is your longest hold; added weight is tracked too.'
   } else if (f == null) {
-    body = <p>Tracked by reps; add weight to see load trends.</p>
+    body = 'Tracked by reps; add weight to see load trends.'
   } else if (bodyweightLb == null || !(bodyweightLb > 0)) {
     body = (
-      <p>
+      <>
         {d.name} counts {f < 1 ? `about ${pct(f)}` : pct(f)} of your bodyweight, but your bodyweight isn’t set. Until you{' '}
-        <a href={href(paths.settings())}>add it in Settings</a>, progress is shown from logged weight and reps only.
-      </p>
+        <a class="link" href={href(paths.settings())}>add it in Settings</a>, progress is shown from logged weight and reps only.
+      </>
     )
   } else {
     const share = f * bodyweightLb
     const half = 0.5 * bodyweightLb
     body = (
-      <p>
+      <>
         {d.name} counts {f < 1 ? `about ${pct(f)}` : pct(f)} of your bodyweight ({formatWeight(bodyweightLb, units)}
         {f !== 1 ? `, so ${formatWeight(share, units)}` : ''}).{' '}
         {assisted
           ? `This is an assisted machine: the logged weight is assistance and is subtracted from that.`
           : `Logged weight under ${formatWeight(half, units)} is treated as added weight (BW + plate); ${formatWeight(half, units)} or more is assumed to already include your bodyweight. Assisted machines subtract the assistance.`}
-      </p>
+      </>
     )
   }
   return (
-    <Card title="How load is counted">
+    <aside class="callout ex-load-note" aria-label="How load is counted">
+      <IconInfo size={16} />
       <div class="load-note">
-        {body}
+        <p>
+          <strong>How load is counted.</strong> {body}
+        </p>
         {reason && <p class="load-note__reason faint">Classified because {reason}.</p>}
       </div>
-    </Card>
+    </aside>
   )
 }
 
@@ -207,6 +222,39 @@ function Caveats({ items }: { items: string[] }) {
         ))}
       </ul>
     </div>
+  )
+}
+
+/** Trend rate figure with its status as the context line. */
+function TrendTile({ d }: { d: ExerciseDetail }) {
+  return (
+    <StatTile
+      label="Trend"
+      value={d.status === 'insufficient' || d.ratePerMonth == null ? '–' : formatRate(d.ratePerMonth)}
+      sub={<TrendBadge status={d.status} ratePerMonth={null} />}
+    />
+  )
+}
+
+function SessionsTile({ d }: { d: ExerciseDetail }) {
+  return (
+    <StatTile
+      label="Sessions"
+      value={formatNumber(d.sessions, { maxDecimals: 0 })}
+      sub={`${plural(d.sets, 'set')}${d.firstDate ? ` since ${formatDate(d.firstDate, 'month')}` : ''}`}
+    />
+  )
+}
+
+/** 'More detail' group: every Detailed-only block under one heading. */
+function MoreDetail({ children }: { children: ComponentChildren }) {
+  return (
+    <section class="ex-more" aria-labelledby="ex-more-title">
+      <h2 class="ex-more__title" id="ex-more-title">
+        More detail
+      </h2>
+      <div class="stack ex-stack">{children}</div>
+    </section>
   )
 }
 
@@ -238,74 +286,63 @@ function WeightedBody({
   const best = d.bestStrength
   const latest = d.latestStrength
   const repsText = (s: { reps: number }) => (s.reps > 0 ? ` × ${formatNumber(s.reps, { maxDecimals: 0 })}` : '')
-  const e1rmTile = (
+  const latestCtx = latest ? strengthContext(latest, 'e1rm', units) : ''
+  const e1rmTile = (lead: boolean) => (
     <StatTile
+      lead={lead}
       label="Estimated 1RM"
-      value={current != null ? formatWeight(current, units, { unit: false }) : '—'}
+      value={current != null ? formatWeight(current, units, { unit: false }) : '–'}
       unit={current != null ? unitLabel(units) : undefined}
-      sub={`${confidence} · ${formulaLabel(formula)}`}
+      sub={lead && latestCtx ? `${latestCtx}, ${confidence.toLowerCase()}` : `${confidence} · ${formulaLabel(formula)}`}
       hint={ESTIMATE_CAVEAT}
     />
   )
 
   return (
-    <div class="stack">
-      <div class="stats-row">
+    <div class="stack ex-stack">
+      <StatStrip>
         {actual ? (
           <StatTile
+            lead
             label="Heaviest set"
-            value={best ? formatWeight(best.value, units, { unit: false }) : '—'}
+            value={best ? formatWeight(best.value, units, { unit: false }) : '–'}
             unit={best ? `${unitLabel(units)}${repsText(best)}` : undefined}
             sub={
               latest
-                ? `Latest ${formatWeight(latest.value, units)}${repsText(latest)}${strengthContext(latest, 'actual', units) ? ` · ${strengthContext(latest, 'actual', units)}` : ''}`
+                ? `Latest ${formatWeight(latest.value, units)}${repsText(latest)}${strengthContext(latest, 'actual', units) ? `, ${strengthContext(latest, 'actual', units)}` : ''}`
                 : 'No weighted sets in range'
             }
-            hint="The heaviest weight you actually lifted, whatever the reps. Switch to Estimated 1RM in the chart below or in Settings."
           />
         ) : (
-          e1rmTile
+          e1rmTile(true)
+        )}
+        {actual ? (
+          e1rmTile(false)
+        ) : (
+          <StatTile
+            label="Best weight"
+            value={d.bestWeightLb != null ? formatWeight(d.bestWeightLb, units, { unit: false }) : '–'}
+            unit={d.bestWeightLb != null ? unitLabel(units) : undefined}
+            sub={bestTop ? `Top set on ${formatDate(bestTop.date, 'short')}` : 'Heaviest set in range'}
+          />
         )}
         {detailed && (
           <StatTile
             label="Best e1RM in range"
-            value={d.bestE1rm != null ? formatWeight(d.bestE1rm, units, { unit: false }) : '—'}
+            value={d.bestE1rm != null ? formatWeight(d.bestE1rm, units, { unit: false }) : '–'}
             unit={d.bestE1rm != null ? unitLabel(units) : undefined}
             delta={d.deltas.d90}
             deltaLabel="over 90 days"
             sub="Highest session estimate"
           />
         )}
-        {actual ? (
-          e1rmTile
-        ) : (
-          <StatTile
-            label="Best weight"
-            value={d.bestWeightLb != null ? formatWeight(d.bestWeightLb, units, { unit: false }) : '—'}
-            unit={d.bestWeightLb != null ? unitLabel(units) : undefined}
-            sub={bestTop ? `Top set on ${formatDate(bestTop.date, 'short')}` : 'Heaviest set in range'}
-          />
-        )}
-        <StatTile
-          label="Sessions"
-          value={formatNumber(d.sessions, { maxDecimals: 0 })}
-          sub={`${plural(d.sets, 'set')}${d.firstDate ? ` since ${formatDate(d.firstDate, 'month')}` : ''}`}
-        />
-        <StatTile
-          label="Trend"
-          value={d.status === 'insufficient' || d.ratePerMonth == null ? '—' : formatRate(d.ratePerMonth)}
-          sub={<TrendBadge status={d.status} ratePerMonth={null} />}
-          hint={TREND_INFO}
-        />
-      </div>
+        <SessionsTile d={d} />
+        <TrendTile d={d} />
+      </StatStrip>
 
       <Card
         title={strengthTitle(d.metric)}
-        subtitle={
-          actual
-            ? 'The heaviest set you lifted each session (any reps), a 21-day trend, and your best so far. Click a point to open the workout.'
-            : 'Each session’s best set, a 21-day trend, and your best so far. Click a point to open the workout.'
-        }
+        subtitle="Click a point to open the workout."
         info={actual ? STRENGTH_METRIC_EXPLAINER : ESTIMATE_CAVEAT}
         actions={<StrengthMetricToggle />}
       >
@@ -313,39 +350,41 @@ function WeightedBody({
         <Caveats items={caveats} />
       </Card>
 
-      <div class="grid-2">
+      <div class="ex-split">
         <RepMaxCard d={d} units={units} detailed={detailed} />
-        {detailed ? <FormulasCard d={d} units={units} formula={formula} /> : <PrCard d={d} units={units} />}
+        <PrCard d={d} units={units} />
       </div>
 
+      <HistoryCard d={d} units={units} detailed={detailed} />
+
       {detailed && (
-        <>
-          <div class="grid-2">
-            <PrCard d={d} units={units} />
+        <MoreDetail>
+          <div class="ex-split">
+            <FormulasCard d={d} units={units} formula={formula} />
             <ChangeCard d={d} />
           </div>
-          <div class="grid-2">
+          <div class="ex-split">
+            <LoadCharts d={d} units={units} />
+          </div>
+          <div class="ex-split">
+            <DistributionCards d={d} />
+          </div>
+          <div class="ex-split">
             <SetQualityCard d={d} />
             {d.relative ? <RelativeStrengthCard d={d} sex={sex} /> : !hasBodyweight && <RelativeHint />}
           </div>
-          <div class="grid-2">
-            <LoadCharts d={d} units={units} />
-          </div>
-          <div class="grid-2">
-            <DistributionCards d={d} />
-          </div>
-        </>
+        </MoreDetail>
       )}
-
-      <HistoryCard d={d} units={units} detailed={detailed} />
     </div>
   )
 }
 
 function RelativeHint() {
   return (
-    <Card title="Relative strength" subtitle="e1RM ÷ bodyweight">
-      <p class="muted">Add your bodyweight in Settings to see strength relative to bodyweight.</p>
+    <Card title="Relative strength">
+      <p class="muted">
+        Add your bodyweight in <a class="link" href={href(paths.settings())}>Settings</a> to see e1RM ÷ bodyweight.
+      </p>
     </Card>
   )
 }
@@ -353,7 +392,7 @@ function RelativeHint() {
 function PrCard({ d, units }: { d: ExerciseDetail; units: Units }) {
   const recent = d.prs.slice().sort((a, b) => b.date.getTime() - a.date.getTime())
   return (
-    <Card title="Personal records" subtitle="Newest first; an exercise's first session is its baseline">
+    <Card title="Personal records" subtitle="Newest first. The first session is the baseline.">
       <PrList prs={recent} units={units} limit={8} showExercise={false} empty="No records yet. They start counting after your first session." />
     </Card>
   )
@@ -363,49 +402,43 @@ function UnweightedBody({ d, units, detailed }: { d: ExerciseDetail; units: Unit
   const stats = unweightedStats(d)
   const timed = stats.bestReps == null && stats.bestDuration != null
   return (
-    <div class="stack">
-      <div class="stats-row">
+    <div class="stack ex-stack">
+      <StatStrip>
         <StatTile
+          lead
           label={timed ? 'Longest set' : 'Best set'}
-          value={timed ? formatDuration(stats.bestDuration) : stats.bestReps != null ? formatNumber(stats.bestReps, { maxDecimals: 0 }) : '—'}
+          value={timed ? formatDuration(stats.bestDuration) : stats.bestReps != null ? formatNumber(stats.bestReps, { maxDecimals: 0 }) : '–'}
           unit={!timed && stats.bestReps != null ? 'reps' : undefined}
           sub="Most in a single set"
         />
         <StatTile label="Total reps" value={formatNumber(stats.totalReps, { maxDecimals: 0 })} sub="In the selected range" />
-        <StatTile
-          label="Sessions"
-          value={formatNumber(d.sessions, { maxDecimals: 0 })}
-          sub={`${plural(d.sets, 'set')}${d.firstDate ? ` since ${formatDate(d.firstDate, 'month')}` : ''}`}
-        />
-        <StatTile
-          label="Trend"
-          value={d.status === 'insufficient' || d.ratePerMonth == null ? '—' : formatRate(d.ratePerMonth)}
-          sub={<TrendBadge status={d.status} ratePerMonth={null} />}
-          hint="Bodyweight work has no e1RM, so the trend follows reps per session."
-        />
+        <SessionsTile d={d} />
+        <TrendTile d={d} />
+      </StatStrip>
+
+      <div class="ex-split">
+        <Card title="Reps per session">
+          <SimpleLineChart
+            points={stats.perSession}
+            label={`Reps per session for ${d.name}`}
+            format={(n) => `${formatNumber(n, { maxDecimals: 0 })} reps`}
+            empty={timed ? 'Timed sets only; see the session history below.' : 'No reps logged in this range.'}
+            area
+          />
+        </Card>
+        <PrCard d={d} units={units} />
       </div>
 
-      <Card title="Reps per session" subtitle="Bodyweight work has no estimated 1RM; total reps show progress instead">
-        <SimpleLineChart
-          points={stats.perSession}
-          label={`Reps per session for ${d.name}`}
-          format={(n) => `${formatNumber(n, { maxDecimals: 0 })} reps`}
-          empty={timed ? 'Timed sets only; see the session history below.' : 'No reps logged in this range.'}
-          area
-        />
-      </Card>
-
-      {detailed ? (
-        <div class="grid-3">
-          <PrCard d={d} units={units} />
-          <SetQualityCard d={d} />
-          <DistributionCards d={d} />
-        </div>
-      ) : (
-        <PrCard d={d} units={units} />
-      )}
-
       <HistoryCard d={d} units={units} detailed={detailed} />
+
+      {detailed && (
+        <MoreDetail>
+          <div class="ex-split">
+            <SetQualityCard d={d} />
+            <DistributionCards d={d} />
+          </div>
+        </MoreDetail>
+      )}
     </div>
   )
 }
@@ -414,56 +447,57 @@ function TimedBody({ d, units, detailed }: { d: ExerciseDetail; units: Units; de
   const latest = d.latestStrength
   const best = d.bestHoldSec ?? d.bestStrength?.holdSec ?? d.bestStrength?.value ?? null
   const weightedHolds = d.topWeight.some((p) => p.value > 0)
+  const holdChart = (
+    <Card title="Longest hold" subtitle="Click a point to open the workout.">
+      <HoldChart d={d} units={units} />
+    </Card>
+  )
   return (
-    <div class="stack">
-      <div class="stats-row">
+    <div class="stack ex-stack">
+      <StatStrip>
         <StatTile
+          lead
           label="Longest hold"
-          value={best != null ? formatHold(best) : '—'}
+          value={best != null ? formatHold(best) : '–'}
           sub={
             latest
               ? `Latest ${formatHold(latest.holdSec ?? latest.value)}${latest.weightLb > 0 ? ` +${formatWeight(latest.weightLb, units)}` : ''}`
               : 'No timed sets in range'
           }
         />
-        <StatTile
-          label="Sessions"
-          value={formatNumber(d.sessions, { maxDecimals: 0 })}
-          sub={`${plural(d.sets, 'set')}${d.firstDate ? ` since ${formatDate(d.firstDate, 'month')}` : ''}`}
-        />
-        <StatTile
-          label="Trend"
-          value={d.status === 'insufficient' || d.ratePerMonth == null ? '—' : formatRate(d.ratePerMonth)}
-          sub={<TrendBadge status={d.status} ratePerMonth={null} />}
-          hint="Theil–Sen slope of each session’s longest hold over the last 90 days. Needs 4+ sessions spanning 21+ days."
-        />
-      </div>
+        <SessionsTile d={d} />
+        <TrendTile d={d} />
+      </StatStrip>
 
-      <Card title="Longest hold" subtitle="Each session’s longest hold, a 21-day trend, and your best so far. Click a point to open the workout.">
-        <HoldChart d={d} units={units} />
-      </Card>
-
-      {weightedHolds && (
-        <Card title="Added weight" subtitle="Heaviest weight held in each session">
-          <SimpleLineChart
-            points={weightPoints(d.topWeight, units)}
-            label={`Added weight for ${d.name}`}
-            format={displayWeightFormat(units)}
-            empty="No weighted holds in this range."
-          />
-        </Card>
-      )}
-
-      {detailed ? (
-        <div class="grid-2">
-          <PrCard d={d} units={units} />
-          <SetQualityCard d={d} />
-        </div>
+      {weightedHolds ? (
+        <>
+          {holdChart}
+          <div class="ex-split">
+            <Card title="Added weight" subtitle="Heaviest weight held in each session">
+              <SimpleLineChart
+                points={weightPoints(d.topWeight, units)}
+                label={`Added weight for ${d.name}`}
+                format={displayWeightFormat(units)}
+                empty="No weighted holds in this range."
+              />
+            </Card>
+            <PrCard d={d} units={units} />
+          </div>
+        </>
       ) : (
-        <PrCard d={d} units={units} />
+        <div class="ex-split">
+          {holdChart}
+          <PrCard d={d} units={units} />
+        </div>
       )}
 
       <HistoryCard d={d} units={units} detailed={detailed} />
+
+      {detailed && (
+        <MoreDetail>
+          <SetQualityCard d={d} />
+        </MoreDetail>
+      )}
     </div>
   )
 }

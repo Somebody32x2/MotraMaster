@@ -1,76 +1,80 @@
 /* ---------- Exercises list ---------- */
+/* Quiet toolbar: muscle filters as text tabs on the left, search on the right, one hairline below. */
 .ex-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: var(--s3);
-  padding: var(--s2) var(--s5) var(--s3);
+  align-items: flex-end;
+  gap: var(--s3) var(--s6);
+  margin-bottom: var(--s2);
   border-bottom: 1px solid var(--border);
 }
 
+.ex-filter {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--s5);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ex-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.ex-filter__tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 0;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+
+.ex-filter__tab:hover {
+  color: var(--text);
+}
+
+.ex-filter__tab[aria-pressed='true'] {
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.ex-filter__tab:focus-visible {
+  outline-offset: -2px;
+}
+
+.ex-filter__n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
 .ex-search {
-  max-width: 320px;
+  flex: 0 0 240px;
+  margin-left: auto;
+  padding-bottom: var(--s2);
 }
 
 .ex-search .input {
   height: 32px;
 }
 
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 13px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 550;
-  white-space: nowrap;
-  transition: background-color 120ms var(--ease), border-color 120ms var(--ease), color 120ms var(--ease);
-}
-
-.filter-chip:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-
-.filter-chip[aria-pressed='true'] {
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  color: var(--accent);
-}
-
-.filter-chip__n {
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-faint);
-}
-
-.filter-chip[aria-pressed='true'] .filter-chip__n {
-  color: inherit;
-  opacity: 0.8;
-}
-
 @media (max-width: 719px) {
+  /* Search on top, filters directly above the hairline. */
   .ex-toolbar {
-    padding-inline: var(--s4);
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--s2);
   }
+
   .ex-search {
-    max-width: none;
-  }
-  .filter-chips {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
+    flex: none;
+    margin-left: 0;
+    padding-bottom: 0;
   }
 }
 
@@ -100,6 +104,7 @@
 }
 
 .cell-2__sub {
+  font-family: var(--font-sans);
   font-size: var(--fs-xs);
   color: var(--text-faint);
   font-weight: 400;
@@ -111,9 +116,28 @@
 }
 
 /* ---------- Exercise detail ---------- */
-.exercise-detail__map {
-  width: 200px;
-  max-width: 40vw;
+/* Small body map at the right of the header row, top-aligned with the title (below the back link). */
+.page-head:has(.ex-map) {
+  align-items: flex-start;
+}
+
+.page-head:has(.ex-map) .page-head__side {
+  align-items: flex-start;
+  padding-top: calc(var(--fs-sm) * 1.5 + var(--s3));
+}
+
+.page-head__actions:has(.ex-map) {
+  order: 1;
+}
+
+.ex-map {
+  flex: none;
+}
+
+@media (max-width: 859px) {
+  .page-head:has(.ex-map) .page-head__side {
+    padding-top: 0;
+  }
 }
 
 .ex-head {
@@ -127,18 +151,63 @@
 .ex-head__secondary {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: var(--fs-sm);
 }
 
 .ex-head__secondary .region-chip {
-  opacity: 0.8;
   background: transparent;
+  color: var(--text-muted);
+}
+
+.ex-head__meta {
+  margin-top: var(--s2);
+  color: var(--text-muted);
 }
 
 .ex-head__raw {
-  margin-top: var(--s2);
+  margin-top: 4px;
   font-size: var(--fs-sm);
+}
+
+.ex-load-note {
+  max-width: 80ch;
+  margin: calc(-1 * var(--s4)) 0 var(--block-gap);
+}
+
+/* Blocks inside the detail page are separated by whitespace, not borders. */
+.ex-stack {
+  --gap: var(--block-gap);
+}
+
+/* Asymmetric pairs: 7/5 on wide screens, stacked below. A lone block spans the row. */
+.ex-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--block-gap) var(--s6);
+}
+
+.ex-split > * {
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .ex-split {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+
+  .ex-split > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.ex-more__title {
+  margin-bottom: var(--s5);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
 }
 
 .ex-caveats {
@@ -165,10 +234,11 @@
   align-items: center;
   height: 20px;
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  font-weight: 550;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--text);
@@ -188,7 +258,7 @@
 .pr-chips {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 4px 8px;
 }
 
 .rm-predicted {
@@ -197,38 +267,33 @@
 
 .rm-predicted.is-chance {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .formula-name {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .formula-name__tag {
-  padding: 0 5px;
-  border-radius: 4px;
   font-size: var(--fs-xs);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--accent);
-  background: var(--accent-soft);
 }
 
-/* Set quality */
+/* Set quality: three figures side by side when there is room. */
 .quality {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s4);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--s5);
   margin: 0;
 }
 
 .quality__item dt {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   font-size: var(--fs-sm);
+  font-weight: 500;
   color: var(--text-muted);
 }
 
@@ -237,16 +302,18 @@
 }
 
 .quality__value {
-  margin-top: 2px;
-  font-size: var(--fs-xl);
-  font-weight: 620;
+  margin-top: 4px;
+  font-size: var(--fs-lg);
+  font-weight: 500;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .quality__note {
+  margin-top: 2px;
   font-size: var(--fs-sm);
-  color: var(--text-faint);
+  color: var(--text-muted);
+  text-wrap: pretty;
 }
 
 .quality__note.is-warn {
@@ -265,16 +332,16 @@
   align-items: baseline;
   gap: 6px;
   font-size: var(--fs-2xl);
-  font-weight: 620;
-  letter-spacing: -0.025em;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
 
 .rel__unit {
   font-size: var(--fs-base);
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .rel__levels {
@@ -284,13 +351,13 @@
 }
 
 .rel__level {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--accent);
 }
 
 .level-bar {
-  height: 8px;
-  border-radius: 4px;
+  height: 6px;
+  border-radius: 2px;
   background: var(--surface-2);
   overflow: hidden;
 }
@@ -298,10 +365,33 @@
 .level-bar > span {
   display: block;
   height: 100%;
-  border-radius: 4px;
   background: var(--accent);
 }
 
 .rel__foot {
   font-size: var(--fs-xs);
+}
+
+/* ---------- Exercise load note ---------- */
+.load-note {
+  display: grid;
+  gap: 4px;
+  line-height: 1.5;
+}
+
+.load-note p {
+  margin: 0;
+  max-width: 75ch;
+  text-wrap: pretty;
+}
+
+.load-note__reason {
+  font-size: var(--fs-xs);
+}
+
+.ov-lifts__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }

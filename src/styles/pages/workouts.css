@@ -1,0 +1,326 @@
+/* ---------- Workouts list ---------- */
+.wo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.wo-filter {
+  width: 260px;
+  max-width: 100%;
+  height: 32px;
+}
+
+.wo-count {
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .wo-toolbar {
+    width: 100%;
+  }
+
+  .wo-filter {
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+/* Month subheading rows: plain text on the page background, not sticky. */
+.wo-table .wo-month th {
+  position: static;
+  padding: var(--s6) 8px var(--s2);
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--border);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  text-align: left;
+  color: var(--text-muted);
+}
+
+.wo-table tbody:first-of-type .wo-month th {
+  padding-top: var(--s4);
+}
+
+.wo-month__name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wo-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.wo-title__name {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 var(--s2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.dt__rowlink:hover .wo-title__name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wo-pr {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* Date line under the title only when the date column is hidden. */
+.wo-title__sub {
+  display: none;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+@media (max-width: 639px) {
+  .wo-title__sub {
+    display: block;
+  }
+}
+
+.wo-date {
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.wo-trim {
+  margin-left: 1px;
+  color: var(--text-faint);
+}
+
+.wo-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--s3);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* ---------- Workout detail ---------- */
+/* Muscles worked: body map 4 columns, bars 8. */
+.wo-muscle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: center;
+}
+
+.wo-muscle > * {
+  min-width: 0;
+}
+
+.wo-muscle__map .bm-view svg {
+  max-height: 320px;
+  width: auto;
+  max-width: 100%;
+}
+
+@media (min-width: 860px) {
+  .wo-muscle {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--s6);
+  }
+
+  .wo-muscle__map .bm-view svg {
+    max-height: none;
+    width: 100%;
+  }
+}
+
+/* Detailed extras: secondary figures, then HR zones (5) beside the rest timeline (7). */
+.wo-extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s6);
+}
+
+.wo-extras__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s6);
+}
+
+@media (min-width: 860px) {
+  .wo-extras__grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+}
+
+.wo-extra {
+  min-width: 0;
+}
+
+.wo-extra__title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.wo-extra__sub {
+  margin: 2px 0 var(--s4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.wo-zones__bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.wo-zones__bar > span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.wo-zones__legend {
+  width: 100%;
+  margin-top: var(--s4);
+  font-size: var(--fs-sm);
+}
+
+.wo-zones__legend th,
+.wo-zones__legend td {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.wo-zones__legend tr:last-child th,
+.wo-zones__legend tr:last-child td {
+  border-bottom: 0;
+}
+
+.wo-zones__legend th {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 400;
+  text-align: left;
+  color: var(--text);
+}
+
+.wo-zones__legend td {
+  padding-left: var(--s4);
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.wo-zones__legend tr.is-zero th,
+.wo-zones__legend tr.is-zero td {
+  color: var(--text-faint);
+}
+
+.wo-zones__swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-sm);
+}
+
+/* Exercises: heading column (4) beside the set table (8); rows split by thin rules. */
+.wo-ex-count {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.wo-ex-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.wo-ex {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3) var(--s6);
+  padding: var(--s5) 0;
+  border-top: 1px solid var(--grid);
+}
+
+.wo-ex:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.wo-ex:last-child {
+  padding-bottom: 0;
+}
+
+@media (min-width: 960px) {
+  .wo-ex {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    align-items: start;
+  }
+}
+
+.wo-ex__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wo-ex__name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.wo-ex__name a {
+  color: var(--text);
+  text-underline-offset: 3px;
+}
+
+.wo-ex__name a:hover {
+  text-decoration: underline;
+}
+
+.wo-ex__meta {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.wo-prs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin-top: 2px;
+}
+
+.wo-ex__regions {
+  margin-top: var(--s2);
+}
+
+.wo-ex__sets {
+  min-width: 0;
+}
+
+.wo-tag {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.wo-tag--hard {
+  color: var(--text-muted);
+}

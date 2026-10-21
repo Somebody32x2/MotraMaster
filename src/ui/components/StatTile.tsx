@@ -18,8 +18,10 @@ export interface StatTileProps {
   hint?: ComponentChildren
   /** Secondary line shown when there is no delta. */
   sub?: ComponentChildren
-  /** Makes the whole tile a link. */
+  /** Makes the whole cell a link. */
   href?: string
+  /** Lead figure of a strip: larger value. */
+  lead?: boolean
 }
 
 function deltaText(d: number, fmt: StatTileProps['deltaFormat']): string {
@@ -28,8 +30,9 @@ function deltaText(d: number, fmt: StatTileProps['deltaFormat']): string {
   return formatPercent(d, { sign: true })
 }
 
+/** One figure of a stat strip: muted label, mono value with unit, one line of context. */
 export function StatTile(props: StatTileProps) {
-  const { label, value, unit, delta, deltaFormat = 'percent', deltaLabel, invert, hint, sub, href } = props
+  const { label, value, unit, delta, deltaFormat = 'percent', deltaLabel, invert, hint, sub, href, lead } = props
   const hasDelta = typeof delta === 'number' && Number.isFinite(delta)
   const good = hasDelta && (invert ? delta < 0 : delta > 0)
   const bad = hasDelta && (invert ? delta > 0 : delta < 0)
@@ -58,11 +61,12 @@ export function StatTile(props: StatTileProps) {
     </>
   )
 
+  const cls = lead ? 'stat stat--lead' : 'stat'
   return href ? (
-    <a class="stat" href={href}>
+    <a class={cls} href={href}>
       {body}
     </a>
   ) : (
-    <div class="stat">{body}</div>
+    <div class={cls}>{body}</div>
   )
 }

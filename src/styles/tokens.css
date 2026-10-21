@@ -2,52 +2,67 @@
  * Design tokens. Light is the default; dark applies via [data-theme="dark"],
  * or via prefers-color-scheme when no explicit theme is set (system).
  * Charts and components consume these by name only.
+ *
+ * Derived tokens (series, ramp, accent-soft) are declared once on :root and
+ * resolve against whichever theme values apply to the root element.
  */
 
 :root {
   color-scheme: light;
 
-  /* Warm neutrals */
-  --bg: #f6f5f2;
+  /* Cool zinc neutrals */
+  --bg: #fbfbfa;
   --surface: #ffffff;
-  --surface-2: #f0eee9;
-  --border: #e5e2db;
-  --border-strong: #cfcac0;
-  --text: #1b1a17;
-  --text-muted: #5c5850;
-  --text-faint: #8d887e;
+  --surface-2: #f3f3f2;
+  --border: #e7e7e5;
+  --border-strong: #d4d4d2;
+  --text: #18181b;
+  --text-muted: #5f5f66;
+  --text-faint: #9a9aa1;
 
-  /* One accent: deep teal, used sparingly */
-  --accent: #0b7268;
+  /* One accent: burnt orange, used sparingly */
+  --accent: #c8501e;
   --accent-contrast: #ffffff;
-  --accent-soft: #e1efec;
+  --accent-soft-mix: 12%;
+  --accent-soft: color-mix(in oklab, var(--accent) var(--accent-soft-mix), var(--bg));
 
-  /* Semantic */
-  --pos: #2f7a47;
-  --neg: #b83a32;
+  /* Semantic: text color only, never large fills */
+  --pos: #2f7d4f;
+  --neg: #b33a3a;
   --warn: #a86a12;
 
-  /* Series — Okabe-Ito derived, separable for common color-vision deficiencies */
-  --c1: #0b7268;
-  --c2: #d1601a;
-  --c3: #2f6db5;
-  --c4: #b08a12;
-  --c5: #a0508f;
-  --c6: #6b7178;
+  --grid: #ececea;
 
-  --grid: #ebe8e1;
+  /* Series: a ramp of accent and ink, not a rainbow */
+  --c1: var(--accent);
+  --c2: color-mix(in oklab, var(--text) 70%, var(--bg));
+  --c3: color-mix(in oklab, var(--accent) 55%, var(--bg));
+  --c4: var(--text-faint);
+  --c5: color-mix(in oklab, var(--accent) 30%, var(--bg));
+  --c6: var(--border-strong);
 
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 14px;
+  /* Ordered intensity (zones, heat, calendar): accent mixed into surface-2 */
+  --ramp-0: var(--surface-2);
+  --ramp-1: color-mix(in oklab, var(--accent) 18%, var(--surface-2));
+  --ramp-2: color-mix(in oklab, var(--accent) 36%, var(--surface-2));
+  --ramp-3: color-mix(in oklab, var(--accent) 55%, var(--surface-2));
+  --ramp-4: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  --ramp-5: var(--accent);
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  /* Shape: containers 10, controls 6, chips 3. No pills. */
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 10px;
 
-  --shadow: 0 1px 2px rgb(27 26 23 / 0.05), 0 2px 8px -2px rgb(27 26 23 / 0.06);
-  --shadow-pop: 0 4px 12px -2px rgb(27 26 23 / 0.12), 0 1px 3px rgb(27 26 23 / 0.08);
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 
-  /* Spacing — 4px base */
+  /* Depth: only floating layers (tooltip, popover, menu) cast a shadow */
+  --shadow: none;
+  --shadow-float: 0 8px 24px -8px rgb(24 24 27 / 0.18), 0 0 0 1px var(--border);
+  --shadow-pop: var(--shadow-float);
+
+  /* Spacing: 4px base */
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -57,77 +72,74 @@
   --s7: 48px;
   --s8: 64px;
 
-  /* Type scale */
-  --fs-xs: 11px;
-  --fs-sm: 12.5px;
+  /* Type scale: 12 / 13 / 14 (body) / 16 / 20 / 28 / 40 / 56 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
   --fs-base: 14px;
-  --fs-md: 15px;
-  --fs-lg: 18px;
-  --fs-xl: 22px;
-  --fs-2xl: 28px;
-  --fs-3xl: 36px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 28px;
+  --fs-2xl: 40px;
+  --fs-3xl: 56px;
+
+  /* Layout */
+  --content-max: 1240px;
+  --gutter: 32px;
+  --block-gap: 48px;
+  --topbar-h: 56px;
+  --tabbar-h: 60px;
 
   --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
   --ease: cubic-bezier(0.2, 0, 0, 1);
-  --sidebar-w: 224px;
-  --topbar-h: 56px;
-  --tabbar-h: 60px;
+}
+
+@media (max-width: 639px) {
+  :root {
+    --gutter: 16px;
+    --block-gap: 40px;
+  }
 }
 
 /* Explicit dark */
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #121210;
-  --surface: #1a1a17;
-  --surface-2: #23221f;
-  --border: #2e2d29;
-  --border-strong: #423f39;
-  --text: #ecebe6;
-  --text-muted: #a7a399;
-  --text-faint: #76726a;
-  --accent: #3fb5a7;
-  --accent-contrast: #0a1715;
-  --accent-soft: #15302c;
-  --pos: #5fbf7d;
-  --neg: #e8716a;
-  --warn: #dca54a;
-  --c1: #3fb5a7;
-  --c2: #ee8a4c;
-  --c3: #6fa3e6;
-  --c4: #d9b84a;
-  --c5: #cf8cc0;
-  --c6: #9aa0a7;
-  --grid: #26251f;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.35);
-  --shadow-pop: 0 6px 16px -4px rgb(0 0 0 / 0.55), 0 1px 3px rgb(0 0 0 / 0.4);
+  --bg: #0e0e10;
+  --surface: #17171a;
+  --surface-2: #1d1d21;
+  --border: #26262b;
+  --border-strong: #34343a;
+  --text: #ececee;
+  --text-muted: #a1a1aa;
+  --text-faint: #6b6b74;
+  --accent: #ec7a45;
+  --accent-contrast: #140a05;
+  --accent-soft-mix: 16%;
+  --pos: #5fbf86;
+  --neg: #e2716f;
+  --warn: #d9a441;
+  --grid: #1f1f23;
+  --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--border);
 }
 
 /* System dark (no explicit theme chosen) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --bg: #121210;
-    --surface: #1a1a17;
-    --surface-2: #23221f;
-    --border: #2e2d29;
-    --border-strong: #423f39;
-    --text: #ecebe6;
-    --text-muted: #a7a399;
-    --text-faint: #76726a;
-    --accent: #3fb5a7;
-    --accent-contrast: #0a1715;
-    --accent-soft: #15302c;
-    --pos: #5fbf7d;
-    --neg: #e8716a;
-    --warn: #dca54a;
-    --c1: #3fb5a7;
-    --c2: #ee8a4c;
-    --c3: #6fa3e6;
-    --c4: #d9b84a;
-    --c5: #cf8cc0;
-    --c6: #9aa0a7;
-    --grid: #26251f;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.35);
-    --shadow-pop: 0 6px 16px -4px rgb(0 0 0 / 0.55), 0 1px 3px rgb(0 0 0 / 0.4);
+    --bg: #0e0e10;
+    --surface: #17171a;
+    --surface-2: #1d1d21;
+    --border: #26262b;
+    --border-strong: #34343a;
+    --text: #ececee;
+    --text-muted: #a1a1aa;
+    --text-faint: #6b6b74;
+    --accent: #ec7a45;
+    --accent-contrast: #140a05;
+    --accent-soft-mix: 16%;
+    --pos: #5fbf86;
+    --neg: #e2716f;
+    --warn: #d9a441;
+    --grid: #1f1f23;
+    --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--border);
   }
 }

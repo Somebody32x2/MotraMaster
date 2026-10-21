@@ -19,4 +19,4 @@ export const FREQUENCY_INFO =
   'Days per week with at least one hard set, averaged over 4 weeks. Frequency matters little for size once volume is equal, but helps strength (Pelland 2026).'
 
 export const FRACTIONAL_INFO =
-  'Fractional sets add 0.5 for each set where this muscle is a strong secondary mover in the Motra catalog — the counting that best fit growth and strength outcomes (Pelland 2026).'
+  'Fractional sets add 0.5 for each set where this muscle is a strong secondary mover in the Motra catalog. This counting best fit growth and strength outcomes (Pelland 2026).'

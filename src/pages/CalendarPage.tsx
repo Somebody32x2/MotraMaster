@@ -7,9 +7,9 @@ import { Card } from '../ui/components/Card'
 import { EmptyState } from '../ui/components/EmptyState'
 import { PageHeader } from '../ui/components/PageHeader'
 import { Select } from '../ui/components/Select'
+import { StatStrip } from '../ui/components/StatStrip'
 import { StatTile } from '../ui/components/StatTile'
-import { formatNumber, formatPercent, plural } from '../ui/format'
-import { IconCalendar } from '../ui/icons'
+import { EMPTY, formatNumber, formatPercent, plural } from '../ui/format'
 import { MonthCalendar } from './calendar/MonthCalendar'
 import { METRIC_BY_ID, METRICS, WEEKDAY_LONG, formatClock, hourRange, loadMetric, quantileScale, saveMetric } from './calendar/metrics'
 import { HourBars, WeekdayHourGrid } from './calendar/TimeOfDay'
@@ -78,8 +78,7 @@ export default function CalendarPage() {
   const header = (
     <PageHeader
       title="Calendar"
-      eyebrow={range.title}
-      subtitle={facts.workouts ? 'When you train, and what those days look like.' : undefined}
+      subtitle={facts.workouts ? `${range.title}, ${plural(facts.workouts, 'workout')} on ${plural(facts.trainingDays, 'day')}` : range.title}
     />
   )
 
@@ -87,11 +86,9 @@ export default function CalendarPage() {
     return (
       <>
         {header}
-        <Card>
-          <EmptyState title="No workouts in this range" icon={<IconCalendar size={22} />} plain>
-            Pick a longer range in the top bar to see your training calendar.
-          </EmptyState>
-        </Card>
+        <EmptyState title="No workouts in this range." plain>
+          Pick a longer range above to see your training calendar.
+        </EmptyState>
       </>
     )
   }
@@ -103,8 +100,8 @@ export default function CalendarPage() {
   return (
     <>
       {header}
-      <div class="stack" style={{ '--gap': 'var(--s4)' }}>
-        <div class="stats-row">
+      <div class="stack">
+        <StatStrip lead>
           <StatTile
             label="Training days"
             value={formatNumber(facts.trainingDays, { maxDecimals: 0 })}
@@ -117,12 +114,12 @@ export default function CalendarPage() {
           />
           <StatTile
             label="Most common day"
-            value={top ? WEEKDAY_LONG[top.weekday] : '—'}
+            value={top ? WEEKDAY_LONG[top.weekday] : EMPTY}
             sub={top ? `${formatPercent(top.hitRate, { decimals: 0 })} of ${WEEKDAY_LONG[top.weekday]}s trained` : undefined}
           />
           <StatTile
             label="Usual start"
-            value={facts.peakHour != null ? formatClock(facts.peakHour) : '—'}
+            value={facts.peakHour != null ? formatClock(facts.peakHour) : EMPTY}
             sub={
               facts.peakHour != null
                 ? `${plural(stats.hours[facts.peakHour], 'workout')} began ${hourRange(facts.peakHour)}`
@@ -132,17 +129,21 @@ export default function CalendarPage() {
           {isDetailed && (
             <StatTile
               label="Longest break"
-              value={facts.trainingDays > 1 ? formatNumber(facts.longestGap, { maxDecimals: 0 }) : '—'}
+              value={facts.trainingDays > 1 ? formatNumber(facts.longestGap, { maxDecimals: 0 }) : EMPTY}
               unit={facts.trainingDays > 1 ? (facts.longestGap === 1 ? 'day' : 'days') : undefined}
               sub={facts.trainingDays > 1 ? 'between two training days' : 'Needs two training days'}
             />
           )}
-        </div>
+        </StatStrip>
 
         <Card
           title="Training calendar"
-          subtitle={`Days colored by ${metric.noun}, relative to your other training days. ${metric.info}`}
-          actions={<Select label="Color by" hideLabel value={metricId} options={METRIC_OPTIONS} onChange={pickMetric} />}
+          subtitle={`Colored by ${metric.noun}, relative to your other training days`}
+          actions={
+            <div class="cal-picker">
+              <Select label="Color by" hideLabel value={metricId} options={METRIC_OPTIONS} onChange={pickMetric} />
+            </div>
+          }
         >
           <MonthCalendar
             days={stats.days}
@@ -154,15 +155,11 @@ export default function CalendarPage() {
           />
         </Card>
 
-        <Card
-          title="Day of the week"
-          subtitle="How often each weekday is trained, its average, and the muscles it usually covers."
-          flush
-        >
+        <Card title="Day of the week" subtitle="Hit rate is the share of each weekday in this range with a workout">
           <WeekdayPanel weekdays={stats.weekdays} metric={metric} scale={scale} units={units} topDay={facts.topDay} />
         </Card>
 
-        <div class={isDetailed ? 'grid-2' : 'stack'}>
+        <div class={isDetailed ? 'cal-split' : 'stack'}>
           <Card
             title="Start times"
             subtitle={facts.startedHours ? `${plural(facts.startedHours, 'workout')} by local start hour` : 'Workouts by local start hour'}
@@ -170,14 +167,14 @@ export default function CalendarPage() {
             <HourBars hours={stats.hours} />
           </Card>
           {isDetailed && (
-            <Card title="Weekday × hour" subtitle="Where your sessions cluster across the week.">
+            <Card title="Weekday × hour">
               <WeekdayHourGrid grid={stats.weekdayHour} />
             </Card>
           )}
         </div>
 
         {isDetailed && (
-          <Card title="Weekday averages" subtitle="Every metric averaged over training days on each weekday." flush>
+          <Card title="Weekday averages" subtitle="Each metric averaged over training days">
             <WeekdayTable weekdays={stats.weekdays} selected={metricId} units={units} />
           </Card>
         )}

@@ -1,7 +1,7 @@
 import type { DayMetric, WeekdayStat } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import { DataTable, type Column } from '../../ui/components/DataTable'
-import { formatNumber, formatPercent } from '../../ui/format'
+import { EMPTY, formatNumber, formatPercent } from '../../ui/format'
 import { METRICS, WEEKDAY_LONG, WEEKDAY_SHORT } from './metrics'
 
 /** Metrics kept on tablets; the rest only show on wide screens. */
@@ -37,7 +37,7 @@ export function WeekdayTable({ weekdays, selected, units }: { weekdays: WeekdayS
         kind: 'number',
         title: `Average per training day. ${m.info}`,
         value: (w) => (w.workouts > 0 ? w.avg[m.value] : null),
-        render: (w) => (w.workouts > 0 ? m.format(w.avg[m.value], units) : '—'),
+        render: (w) => (w.workouts > 0 ? m.format(w.avg[m.value], units) : <span class="faint">{EMPTY}</span>),
         priority: m.value === selected ? 1 : WIDE[m.value] ? 2 : 3,
       })),
   ]

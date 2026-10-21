@@ -93,7 +93,7 @@ export function describeLoadedSet(
   }
   const w = set.loadLb ?? set.weightLb
   if (w != null && w > 0) return `${formatWeight(w, units)}${reps}`
-  return reps ? `${formatNumber(set.reps, { maxDecimals: 0 })} reps` : '—'
+  return reps ? `${formatNumber(set.reps, { maxDecimals: 0 })} reps` : '–'
 }
 
 /** Compact chip text: '185×5', 'BW+25×8', 'BW×10', 'BW−40×8', '1:30 hold', '1:00 +25 lb', '12 reps'. */
@@ -116,7 +116,7 @@ export function setChipText(set: ExerciseSessionRow['sets'][number], units: Unit
   if (w > 0) return `${num(w)}×${reps ?? '0'}`
   if (reps) return `${reps} reps`
   if (set.durationSec != null && set.durationSec > 0) return formatHold(set.durationSec)
-  return '—'
+  return '–'
 }
 
 /** Axis formatter for hold seconds: '45s', '1:30'. */

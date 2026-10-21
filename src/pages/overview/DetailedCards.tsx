@@ -1,7 +1,7 @@
 import type { BalanceRatios, OverviewStats, StrengthProfile } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import { href, paths } from '../../router'
-import { BarChart, LineChart } from '../../ui/charts'
+import { BarChart, LineChart, rampColor } from '../../ui/charts'
 import { Card } from '../../ui/components/Card'
 import { formatDate, formatDuration, formatNumber, formatPercent, formatRest, plural, toDisplayWeight, unitLabel } from '../../ui/format'
 import { CardEmpty, Metric, ShareBar } from './parts'
@@ -18,40 +18,36 @@ const BALANCE_ROWS: Array<{ key: keyof BalanceRatios; a: string; b: string }> = 
 
 export function BalanceCard({ balance, class: cls }: { balance: BalanceRatios; class?: string }) {
   return (
-    <Card
-      title="Balance"
-      subtitle="Weekly sets, last 8 weeks"
-      info="Fractional weekly sets averaged over 8 weeks. There is no validated ideal ratio; about 1:1 push:pull is a common coaching heuristic."
-      class={cls}
-    >
+    <Card title="Balance" subtitle="Weekly sets, averaged over the last 8 weeks" class={cls}>
       <ul class="ov-split-list" role="list">
         {BALANCE_ROWS.map(({ key, a, b }) => {
           const [va, vb] = (balance[key] ?? [0, 0]).map((v) => (isNum(v) && v > 0 ? v : 0))
           const total = va + vb
-          const ratio = vb > 0 && va > 0 ? `${formatNumber(va / vb, { decimals: 2 })} : 1` : '—'
+          const fa = formatNumber(va, { maxDecimals: 1 })
+          const fb = formatNumber(vb, { maxDecimals: 1 })
           return (
             <li key={key} class="ov-split">
-              <div class="ov-split__head">
-                <span>
-                  {a} <span class="faint num">{formatNumber(va, { maxDecimals: 1 })}</span>
-                </span>
-                <span class="ov-split__ratio num">{total > 0 ? ratio : 'No sets'}</span>
-                <span>
-                  <span class="faint num">{formatNumber(vb, { maxDecimals: 1 })}</span> {b}
-                </span>
-              </div>
-              <div
-                class="ov-split__bar"
-                role="img"
-                aria-label={`${a} ${formatNumber(va, { maxDecimals: 1 })} versus ${b} ${formatNumber(vb, { maxDecimals: 1 })} sets per week`}
-              >
-                {total > 0 && (
+              <span class="ov-split__name">
+                {a} : {b.toLowerCase()}
+              </span>
+              <span class={`ov-split__ratio tnum${va > 0 && vb > 0 ? '' : ' faint'}`}>
+                {va > 0 && vb > 0 ? `${formatNumber(va / vb, { decimals: 2 })} : 1` : '–'}
+              </span>
+              <span class="ov-split__sets num">
+                {total > 0 ? (
                   <>
-                    <span style={{ width: `${(va / total) * 100}%`, background: 'var(--c1)' }} />
-                    <span style={{ width: `${(vb / total) * 100}%`, background: 'var(--c2)' }} />
+                    {fa} / {fb}
                   </>
+                ) : (
+                  'No sets'
                 )}
-              </div>
+              </span>
+              {total > 0 && (
+                <span class="ov-split__bar" role="img" aria-label={`${a} ${fa} versus ${b} ${fb} sets per week`}>
+                  <span style={{ flexGrow: va, background: 'var(--c1)' }} />
+                  <span style={{ flexGrow: vb, background: 'var(--c4)' }} />
+                </span>
+              )}
             </li>
           )
         })}
@@ -70,7 +66,7 @@ export function IntensityCard({ stats, class: cls }: { stats: OverviewStats; cla
     <Card
       title="Intensity and rep ranges"
       subtitle="Share of hard sets"
-      info="Each hard set’s weight as a share of that exercise’s best estimated 1RM over the trailing 8 weeks. Heavier loads build more strength; growth is similar across loads taken near failure (Schoenfeld 2017)."
+      info="Each hard set’s weight as a share of that exercise’s best estimated 1RM (e1RM) over the trailing 8 weeks."
       class={cls}
     >
       <div class="stack" style={{ '--gap': 'var(--s5)' }}>
@@ -105,19 +101,21 @@ export function RestCard({ stats, class: cls }: { stats: OverviewStats; class?: 
   return (
     <Card
       title="Rest between sets"
-      info="Rest over 60 s gives a small hypertrophy edge, with little extra benefit past about 90 s (Singer 2024). Excludes each exercise’s first set, zero rests and rests over 10 minutes."
+      subtitle={hasData ? `Median ${formatRest(stats.medianRestSec)}, excluding each exercise’s first set` : undefined}
       class={cls}
     >
       {hasData ? (
-        <>
-          <Metric label="Median rest" value={formatRest(stats.medianRestSec)} />
-          <BarChart
-            data={REST_LABELS.map((label, i) => ({ key: `b${i}`, label, values: Math.round(sh[i] * 1000) / 10, color: 'var(--c3)' }))}
-            valueFormat={(n) => `${formatNumber(n, { maxDecimals: 0 })}%`}
-            height={150}
-            ariaLabel="Distribution of rest times"
-          />
-        </>
+        <BarChart
+          data={REST_LABELS.map((label, i) => ({
+            key: `b${i}`,
+            label,
+            values: Math.round(sh[i] * 1000) / 10,
+            color: rampColor(i, REST_LABELS.length),
+          }))}
+          valueFormat={(n) => `${formatNumber(n, { maxDecimals: 0 })}%`}
+          height={160}
+          ariaLabel="Distribution of rest times"
+        />
       ) : (
         <CardEmpty>No rest times recorded between sets in this range.</CardEmpty>
       )}
@@ -153,14 +151,15 @@ export function DensityCard({ stats, units, class: cls }: { stats: OverviewStats
 
 /* ---------- D12 Heart-rate zones ---------- */
 
+const HR_COLORS = HR_ZONES.map((_, i) => rampColor(i, HR_ZONES.length))
+
 export function HrZonesCard({ stats, class: cls }: { stats: OverviewStats; class?: string }) {
   const weeks = stats.hrWeekly.filter((w) => sum(w.zones) > 0)
   const highMin = weeks.length ? sum(weeks.map((w) => (w.zones[3] ?? 0) + (w.zones[4] ?? 0))) / 60 / weeks.length : null
   return (
     <Card
       title="Heart-rate zones"
-      subtitle={highMin != null ? `${formatDuration(highMin * 60)} per week in zones 4–5` : undefined}
-      info="Minutes per week in Motra’s heart-rate zones (percent of max heart rate). Time below zone 1 is not counted."
+      subtitle={highMin != null ? `${formatDuration(highMin * 60)} per week in zones 4 and 5` : 'Minutes per week'}
       class={cls}
     >
       {weeks.length ? (
@@ -171,6 +170,7 @@ export function HrZonesCard({ stats, class: cls }: { stats: OverviewStats; class
             values: HR_ZONES.map((_, i) => Math.round(((w.zones[i] ?? 0) / 60) * 10) / 10),
           }))}
           stackLabels={HR_ZONES}
+          stackColors={HR_COLORS}
           valueFormat={(n) => formatDuration(n * 60)}
           height={200}
           ariaLabel="Weekly minutes per heart-rate zone"
@@ -191,14 +191,13 @@ export function EffortCard({ histogram, class: cls }: { histogram: number[]; cla
   return (
     <Card
       title="Effort"
-      subtitle={hardShare != null ? `${formatPercent(hardShare)} of rated sets at effort 8+` : undefined}
-      info="Motra’s perceived effort (RPE 1–10). Sets taken closer to failure drive more growth (Robinson 2024)."
+      subtitle={hardShare != null ? `Rated sets (RPE 1–10), ${formatPercent(hardShare)} at 8 or above` : 'Rated sets (RPE 1–10)'}
       class={cls}
     >
       <BarChart
-        data={histogram.map((n, i) => ({ key: `e${i}`, label: String(i + 1), values: n, color: i >= 7 ? 'var(--c2)' : 'var(--c1)' }))}
+        data={histogram.map((n, i) => ({ key: `e${i}`, label: String(i + 1), values: n, color: rampColor(i, histogram.length) }))}
         valueFormat={(n) => formatNumber(n, { maxDecimals: 0 })}
-        height={150}
+        height={160}
         ariaLabel="Sets per effort rating"
       />
     </Card>
@@ -211,18 +210,18 @@ function loadWording(r: number): string {
   if (r < 0.8) return 'Lighter than your recent average.'
   if (r <= 1.3) return 'In line with your recent average.'
   if (r <= 1.5) return 'Somewhat above your recent average.'
-  return 'Well above your recent average — a sudden jump in work.'
+  return 'Well above your recent average: a sudden jump in work.'
 }
 
 export function LoadRatioCard({ ratio, class: cls }: { ratio: number | null; class?: string }) {
   return (
     <Card
       title="Load ratio"
-      info="Hard sets in the last 7 days divided by your weekly average over 28 days. Informational only; claims that it predicts injury are disputed."
+      info="Hard sets in the last 7 days divided by your weekly average over 28 days (acute : chronic). Informational only; claims that it predicts injury are disputed."
       class={cls}
     >
       {isNum(ratio) ? (
-        <Metric label="Acute : chronic" value={formatNumber(ratio, { decimals: 2 })} note={loadWording(ratio)} />
+        <Metric label="Last 7 days vs 28-day average" value={formatNumber(ratio, { decimals: 2 })} note={loadWording(ratio)} />
       ) : (
         <CardEmpty>Needs at least 4 weeks of training data.</CardEmpty>
       )}
@@ -234,11 +233,10 @@ export function LoadRatioCard({ ratio, class: cls }: { ratio: number | null; cla
 
 export function StrengthScoreCard({ profile, class: cls }: { profile: StrengthProfile; class?: string }) {
   const { dots, ipfGl } = profile
-  const basis = (b: 'total' | 'bench') => (b === 'total' ? 'squat + bench + deadlift' : 'bench only')
+  const basis = (b: 'total' | 'bench') => (b === 'total' ? 'Squat + bench + deadlift' : 'Bench only')
   return (
     <Card
       title="Strength score"
-      subtitle="Estimated from e1RMs"
       info="DOTS and IPF GL normalize a powerlifting total for bodyweight so lifters of different sizes can be compared. Estimated from recent e1RMs, not meet lifts."
       class={cls}
     >
@@ -259,14 +257,13 @@ export function NewExercisesCard({ items: rows, class: cls }: { items: OverviewS
     <Card
       title="New exercises"
       subtitle={rows.length ? `${plural(rows.length, 'exercise')} first done in this range` : undefined}
-      info="Exercises you did for the first time in this range. Variety keeps training fresh; too much makes progress hard to track."
       class={cls}
     >
       {shown.length ? (
         <ul class="ov-plain-list" role="list">
           {shown.map((e) => (
             <li key={e.key}>
-              <a class="link" href={href(paths.exercise(e.key))}>
+              <a class="ov-link" href={href(paths.exercise(e.key))}>
                 {e.name}
               </a>
               <span class="faint num">{formatDate(e.firstDate, 'short')}</span>

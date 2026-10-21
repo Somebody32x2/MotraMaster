@@ -20,7 +20,7 @@ export function Dropzone({
   busy,
   busyLabel = 'Reading files…',
   title = 'Drop Motra exports here',
-  hint = 'Excel workbooks (.xlsx, .xls) — select several at once if you like',
+  hint = 'Excel workbooks (.xlsx, .xls), several at once if you like',
 }: DropzoneProps) {
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
@@ -77,7 +77,7 @@ export function Dropzone({
         }}
       >
         <span class="dropzone__icon" aria-hidden="true">
-          <IconImport size={22} />
+          <IconImport size={24} />
         </span>
         {busy ? (
           <span class="dropzone__title" aria-live="polite">
@@ -105,7 +105,7 @@ export function Dropzone({
       />
       {rejected.length > 0 && (
         <p class="field__error" role="alert" style={{ marginTop: 8 }}>
-          Skipped {rejected.join(', ')} — only Excel files (.xlsx, .xls) can be imported.
+          Skipped {rejected.join(', ')}: only Excel files (.xlsx, .xls) can be imported.
         </p>
       )}
     </div>

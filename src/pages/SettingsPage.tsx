@@ -5,8 +5,6 @@ import { strengthProfile } from '../core/analytics'
 import type { OneRmFormula, Sex, ThemePref, Units } from '../core/types'
 import { href, paths } from '../router'
 import { clearData, dataset, settings, updateSettings } from '../state'
-import { Badge } from '../ui/components/Badge'
-import { Card } from '../ui/components/Card'
 import { ConfirmButton } from '../ui/components/ConfirmButton'
 import { NumberField } from '../ui/components/NumberField'
 import { PageHeader } from '../ui/components/PageHeader'
@@ -115,9 +113,35 @@ const FORMULAS: Array<{ value: OneRmFormula; label: string; formula?: string; de
 
 const THIS_YEAR = new Date().getFullYear()
 
-function Setting({ label, desc, children }: { label: ComponentChildren; desc?: ComponentChildren; children: ComponentChildren }) {
+/** One section of the settings document: label column on the left (sticky on desktop), controls on the right. */
+function Section({ id, title, desc, children }: { id: string; title: string; desc?: ComponentChildren; children: ComponentChildren }) {
   return (
-    <div class="setting">
+    <section class="settings-section" aria-labelledby={`${id}-title`}>
+      <header class="settings-section__head">
+        <h2 id={`${id}-title`} class="settings-section__title">
+          {title}
+        </h2>
+        {desc != null && <p class="settings-section__desc">{desc}</p>}
+      </header>
+      <div class="settings-section__body">{children}</div>
+    </section>
+  )
+}
+
+function Setting({
+  label,
+  desc,
+  wide,
+  children,
+}: {
+  label: ComponentChildren
+  desc?: ComponentChildren
+  /** Control spans the full width under the label (lists, readouts). */
+  wide?: boolean
+  children: ComponentChildren
+}) {
+  return (
+    <div class={wide ? 'setting setting--wide' : 'setting'}>
       <div>
         <p class="setting__label">{label}</p>
         {desc != null && <p class="setting__desc">{desc}</p>}
@@ -177,11 +201,33 @@ function HeightFields({ heightCm, units }: { heightCm: number | null; units: Uni
   )
 }
 
+function FormulaList() {
+  const current = settings.value.oneRmFormula
+  return (
+    <div class="formula-list" role="radiogroup" aria-label="1RM formula">
+      {FORMULAS.map((f) => (
+        <label key={f.value} class="formula-list__row" data-checked={current === f.value}>
+          <input
+            type="radio"
+            name="one-rm-formula"
+            value={f.value}
+            checked={current === f.value}
+            onChange={() => updateSettings({ oneRmFormula: f.value })}
+          />
+          <span class="formula-list__name">{f.label}</span>
+          <span class="formula-list__formula">{f.formula ?? <span class="faint">by rep count</span>}</span>
+          <span class="formula-list__desc">{f.desc}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 function Unlocks() {
   const s = settings.value
   const bw = s.bodyweightLb != null
   const items = [
-    { on: bw, label: 'Relative strength', need: 'bodyweight', desc: 'lifts expressed as multiples of bodyweight' },
+    { on: bw, label: 'Relative strength', need: 'bodyweight', desc: 'lifts as multiples of bodyweight' },
     {
       on: bw && s.sex !== 'unspecified',
       label: 'Strength standards',
@@ -189,18 +235,18 @@ function Unlocks() {
       desc: 'how your estimated 1RMs compare with typical lifters',
     },
     { on: bw && s.sex !== 'unspecified', label: 'DOTS score', need: 'bodyweight and sex', desc: 'a bodyweight-adjusted powerlifting score' },
-    { on: bw && s.heightCm != null, label: 'BMI', need: 'bodyweight and height', desc: 'shown alongside body metrics' },
+    { on: bw && s.heightCm != null, label: 'BMI', need: 'bodyweight and height', desc: 'shown with your profile' },
     { on: s.birthYear != null, label: 'Age context', need: 'birth year', desc: 'age-adjusted comparisons where available' },
   ]
   return (
     <ul role="list" class="unlocks">
       {items.map((it) => (
         <li key={it.label} data-on={it.on}>
-          <span class="unlocks__dot" aria-hidden="true" />
-          <span>
-            <strong>{it.label}</strong> — {it.desc}.{' '}
-            <span class="faint">{it.on ? 'Enabled.' : `Needs ${it.need}.`}</span>
+          <span class="unlocks__text">
+            <span class="unlocks__name">{it.label}</span>
+            <span class="unlocks__desc">{it.desc}</span>
           </span>
+          <span class="unlocks__state">{it.on ? 'On' : `Needs ${it.need}`}</span>
         </li>
       ))}
     </ul>
@@ -235,15 +281,15 @@ function ProfileReadout() {
         : 'Import workouts to see this.'
 
   return (
-    <Card title="Your profile" subtitle="Calculated from your body metrics and estimated 1RMs, at your current bodyweight.">
+    <Section id="profile" title="Your profile" desc="From your body metrics and estimated 1RMs, at your current bodyweight.">
       <Setting
         label="BMI"
-        desc="Weight ÷ height², with WHO adult bands. It can’t tell muscle from fat, so it often labels muscular people as overweight — treat it as a rough guide."
+        desc="Weight ÷ height², with WHO adult bands. It can’t tell muscle from fat, so treat it as a rough guide."
       >
         {hasBmi ? (
-          <p class="row">
-            <span class="num ov-big">{formatNumber(bmi, { decimals: 1 })}</span>
-            <Badge>{bmiBand(bmi)}</Badge>
+          <p class="settings-figure">
+            <span class="settings-figure__value tnum">{formatNumber(bmi, { decimals: 1 })}</span>
+            <span class="settings-figure__note">{bmiBand(bmi)}</span>
           </p>
         ) : (
           <p class="faint">Needs bodyweight and height.</p>
@@ -266,13 +312,13 @@ function ProfileReadout() {
       <Setting label="DOTS" desc="A bodyweight-adjusted powerlifting score, estimated from your e1RMs rather than meet lifts.">
         {dots ? (
           <div class="stack" style={{ '--gap': 'var(--s1)' }}>
-            <p class="row">
-              <span class="num ov-big">{formatNumber(dots.value, { decimals: 1 })}</span>
-              <span class="faint">{basis(dots.basis)}</span>
+            <p class="settings-figure">
+              <span class="settings-figure__value tnum">{formatNumber(dots.value, { decimals: 1 })}</span>
+              <span class="settings-figure__note">{basis(dots.basis)}</span>
             </p>
             {gl && (
-              <p class="faint">
-                IPF GL <span class="num">{formatNumber(gl.value, { decimals: 1 })}</span> ({basis(gl.basis)})
+              <p class="muted">
+                IPF GL <span class="tnum">{formatNumber(gl.value, { decimals: 1 })}</span> ({basis(gl.basis)})
               </p>
             )}
           </div>
@@ -280,7 +326,7 @@ function ProfileReadout() {
           <p class="faint">{dotsNeeds}</p>
         )}
       </Setting>
-    </Card>
+    </Section>
   )
 }
 
@@ -291,10 +337,10 @@ export default function SettingsPage() {
   const bwDisplay = s.bodyweightLb != null ? toDisplayWeight(s.bodyweightLb, u) : null
 
   return (
-    <div class="stack" style={{ '--gap': 'var(--s5)' }}>
-      <PageHeader title="Settings" subtitle="Preferences are saved on this device and apply immediately." />
+    <div class="settings-doc">
+      <PageHeader title="Settings" subtitle="Saved on this device and applied immediately." />
 
-      <Card title="Display">
+      <Section id="display" title="Display">
         <Setting label="Units" desc="Motra exports pounds; values are converted for display only.">
           <Segmented label="Units" block options={UNIT_OPTIONS} value={u} onChange={(units) => updateSettings({ units })} />
         </Setting>
@@ -303,7 +349,7 @@ export default function SettingsPage() {
         </Setting>
         <Setting
           label="Detailed statistics"
-          desc="Show every metric and breakdown — set-level tables, rest and tempo analysis, secondary charts. Also available in the top bar."
+          desc="Show every metric and breakdown: set-level tables, rest and tempo analysis, secondary charts. Also switchable in each page header."
         >
           <Toggle
             label={s.detail === 'detailed' ? 'Detailed' : 'Normal'}
@@ -312,9 +358,9 @@ export default function SettingsPage() {
             onChange={(on) => updateSettings({ detail: on ? 'detailed' : 'normal' })}
           />
         </Setting>
-      </Card>
+      </Section>
 
-      <Card title="Strength" subtitle="How progress is tracked across sparklines, trends, top lifts and exercise charts.">
+      <Section id="strength" title="Strength" desc="Applies to sparklines, trends, top lifts and exercise charts.">
         <Setting label="Track progress by" desc={STRENGTH_METRIC_EXPLAINER}>
           <Segmented
             label="Track progress by"
@@ -324,61 +370,19 @@ export default function SettingsPage() {
             onChange={(strengthMetric) => updateSettings({ strengthMetric })}
           />
         </Setting>
-        <div class="settings-formula-head">
-          <p class="setting__label">1RM formula</p>
-          <p class="setting__desc">
-            How a set’s weight (w) and reps (r) become an estimated 1RM, used for e1RM progress, rep maxes and strength standards. Sets above 12 reps
-            are less reliable with any formula.
-          </p>
-        </div>
-        <div class="choices" role="radiogroup" aria-label="1RM formula">
-          {FORMULAS.map((f) => (
-            <label key={f.value} class="choice">
-              <input
-                type="radio"
-                name="one-rm-formula"
-                value={f.value}
-                checked={s.oneRmFormula === f.value}
-                onChange={() => updateSettings({ oneRmFormula: f.value })}
-              />
-              <span class="choice__text">
-                <span class="choice__label">
-                  {f.label}
-                  {f.formula && <span class="choice__formula">{f.formula}</span>}
-                </span>
-                <span class="choice__desc">{f.desc}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </Card>
-
-      <Card title="Workout duration" subtitle="For workouts left running after the last set.">
         <Setting
-          label="Idle time"
-          desc="Uses the logged set and rest times. Long rests between sets are kept; only time after the last set beyond the grace period is removed. Calories and heart-rate zones are left as Motra recorded them."
+          wide
+          label="1RM formula"
+          desc="How a set’s weight (w) and reps (r) become an estimated 1RM. Sets above 12 reps are less reliable with any formula."
         >
-          <Toggle label="Trim idle time after the last set" checked={s.trimIdle} onChange={(trimIdle) => updateSettings({ trimIdle })} />
+          <FormulaList />
         </Setting>
-        <Setting label="Grace period" desc="Minutes kept after the last set for cool-down and wrapping up (0–60).">
-          <NumberField
-            label="Grace period"
-            hideLabel
-            unit="min"
-            value={s.trimGraceMin}
-            decimals={0}
-            min={0}
-            max={60}
-            disabled={!s.trimIdle}
-            onChange={(v) => updateSettings({ trimGraceMin: v == null ? 5 : Math.min(60, Math.max(0, Math.round(v))) })}
-          />
-        </Setting>
-      </Card>
+      </Section>
 
-      <Card title="Body metrics" subtitle="Optional. Used only for calculations on this device.">
+      <Section id="body" title="Body" desc="Optional. Used only for calculations on this device.">
         <Setting
           label="Bodyweight"
-          desc="Your current weight. Update it occasionally to keep relative numbers honest. Also used to count bodyweight in dips, pull-ups and push-ups."
+          desc="Update it occasionally to keep relative numbers honest. Also counts bodyweight in dips, pull-ups and push-ups."
         >
           <NumberField
             label="Bodyweight"
@@ -410,26 +414,48 @@ export default function SettingsPage() {
             onChange={(v) => updateSettings({ birthYear: v == null ? null : Math.round(v) })}
           />
         </Setting>
-        <Setting label="What this unlocks">
+        <Setting wide label="What this unlocks">
           <Unlocks />
         </Setting>
-      </Card>
+      </Section>
+
+      <Section id="duration" title="Workout duration" desc="For workouts left running after the last set.">
+        <Setting
+          label="Idle time"
+          desc="Only time after the last set, beyond the grace period, is removed. Rests between sets are kept; calories and heart-rate zones stay as Motra recorded them."
+        >
+          <Toggle label="Trim idle time after the last set" checked={s.trimIdle} onChange={(trimIdle) => updateSettings({ trimIdle })} />
+        </Setting>
+        <Setting label="Grace period" desc="Minutes kept after the last set for cool-down (0 to 60).">
+          <NumberField
+            label="Grace period"
+            hideLabel
+            unit="min"
+            value={s.trimGraceMin}
+            decimals={0}
+            min={0}
+            max={60}
+            disabled={!s.trimIdle}
+            onChange={(v) => updateSettings({ trimGraceMin: v == null ? 5 : Math.min(60, Math.max(0, Math.round(v))) })}
+          />
+        </Setting>
+      </Section>
 
       <ProfileReadout />
 
-      <Card title="Data" subtitle="Stored in this browser only. Clearing site data in your browser also removes it.">
+      <Section id="data" title="Data" desc="Stored in this browser only. Clearing site data also removes it.">
         {ds ? (
           <>
-            <Setting label="Workouts">
-              <p class="num">
-                {plural(ds.workouts.length, 'workout')} · {plural(Object.keys(ds.exercises).length, 'exercise')} ·{' '}
+            <Setting label="Stored">
+              <p>
+                {plural(ds.workouts.length, 'workout')}, {plural(Object.keys(ds.exercises).length, 'exercise')},{' '}
                 {plural(Object.keys(ds.muscles).length, 'muscle group')}
               </p>
             </Setting>
             <Setting label="Last import">
               <p title={formatDate(new Date(ds.importedAt), 'datetime')}>
                 {formatRelative(new Date(ds.importedAt))}{' '}
-                <span class="faint">({formatDate(new Date(ds.importedAt), 'medium')})</span>
+                <span class="muted">({formatDate(new Date(ds.importedAt), 'medium')})</span>
               </p>
             </Setting>
             <Setting label="Source files">
@@ -447,7 +473,7 @@ export default function SettingsPage() {
               )}
             </Setting>
             <Setting label="Manage" desc="Import newer exports or remove everything from this device.">
-              <div class="stack" style={{ '--gap': 'var(--s2)', alignItems: 'flex-start' }}>
+              <div class="row" style={{ flexWrap: 'wrap' }}>
                 <a class="btn" href={href(paths.import())}>
                   Import files
                 </a>
@@ -468,11 +494,9 @@ export default function SettingsPage() {
             </a>
           </Setting>
         )}
-      </Card>
+      </Section>
 
-      <p class="faint" style={{ fontSize: 'var(--fs-sm)' }}>
-        MotraMaster is an independent tool and is not affiliated with Motra.
-      </p>
+      <p class="settings-doc__foot">MotraMaster is an independent tool and is not affiliated with Motra.</p>
     </div>
   )
 }

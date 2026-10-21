@@ -1,12 +1,14 @@
+import { useId } from 'preact/hooks'
 import type { EnrichedSet, LoadBasis, PrType, WorkoutDetail } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import { href, paths } from '../../router'
-import { Card } from '../../ui/components/Card'
 import { DataTable, type Column } from '../../ui/components/DataTable'
-import { formatDuration, formatNumber, formatRest, formatWeight, plural } from '../../ui/format'
+import { EMPTY, formatDuration, formatNumber, formatRest, formatWeight, plural } from '../../ui/format'
 import { formatHold, LoadBasisTag, PrChip, RegionChips } from '../../ui/widgets'
 
 type Block = WorkoutDetail['blocks'][number]
+
+const dash = <span class="faint">{EMPTY}</span>
 
 const BW_BASES = new Set<LoadBasis>(['bodyweightAdded', 'bodyweightIncluded', 'assisted', 'bodyweightUnknown'])
 
@@ -31,7 +33,7 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
       align: 'right',
       render: ({ set }) => {
         if (BW_BASES.has(set.loadBasis)) return <LoadBasisTag basis={set.loadBasis} weightLb={set.weightLb} loadLb={set.loadLb} units={units} />
-        return set.weightLb == null ? '—' : set.weightLb > 0 ? formatWeight(set.weightLb, units) : <span class="faint">Bodyweight</span>
+        return set.weightLb == null ? dash : set.weightLb > 0 ? formatWeight(set.weightLb, units) : <span class="faint">Bodyweight</span>
       },
     },
     {
@@ -41,7 +43,7 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
       render: ({ set }) => {
         if (set.reps != null && set.reps > 0) return formatNumber(set.reps, { maxDecimals: 0 })
         if (set.holdSec != null && set.holdSec > 0) return `${formatHold(set.holdSec)} hold`
-        return set.reps != null ? formatNumber(set.reps, { maxDecimals: 0 }) : set.durationSec != null ? formatDuration(set.durationSec) : '—'
+        return set.reps != null ? formatNumber(set.reps, { maxDecimals: 0 }) : set.durationSec != null ? formatDuration(set.durationSec) : dash
       },
     },
   ]
@@ -61,7 +63,7 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
               {formatWeight(set.e1rm.value, units)}
             </span>
           ) : (
-            '—'
+            dash
           ),
       },
       { id: 'effort', header: 'Effort', align: 'right', title: 'Perceived effort (RPE 1–10)', render: ({ set }) => formatNumber(set.effort) },
@@ -75,7 +77,7 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
       title: 'Rest before this set',
       render: ({ set }) =>
         set.restSec == null || set.restSec <= 0 ? (
-          '—'
+          dash
         ) : set.firstOfBlock ? (
           <span class="faint" title="Includes changeover from the previous exercise">
             {formatRest(set.restSec)}
@@ -92,7 +94,7 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
       priority: 2,
       render: ({ set }) => {
         const v = secPerRep(set)
-        return v != null ? `${formatNumber(v, { maxDecimals: 1 })}s` : '—'
+        return v != null ? `${formatNumber(v, { maxDecimals: 1 })}s` : dash
       },
     },
   )
@@ -109,7 +111,8 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
   return cols
 }
 
-export function ExerciseBlock({ block, units, detailed: isDetailed, class: cls }: { block: Block; units: Units; detailed: boolean; class?: string }) {
+export function ExerciseBlock({ block, units, detailed: isDetailed }: { block: Block; units: Units; detailed: boolean }) {
+  const headingId = useId()
   const rows = block.sets.map((set, i) => ({ set, n: i + 1 }))
   const hard = block.sets.filter((s) => s.hard).length
   const prTypes = [...new Set<PrType>(block.prs.map((p) => p.type))]
@@ -120,31 +123,28 @@ export function ExerciseBlock({ block, units, detailed: isDetailed, class: cls }
   ].filter(Boolean)
 
   return (
-    <Card
-      title={
-        <a class="link" href={href(paths.exercise(block.exerciseKey))}>
-          {block.name}
-        </a>
-      }
-      subtitle={meta.join(' · ')}
-      actions={
-        prTypes.length ? (
-          <span class="wo-prs">
+    <section class="wo-ex" aria-labelledby={headingId}>
+      <header class="wo-ex__head">
+        <h3 class="wo-ex__name" id={headingId}>
+          <a href={href(paths.exercise(block.exerciseKey))}>{block.name}</a>
+        </h3>
+        <p class="wo-ex__meta">{meta.join(' · ')}</p>
+        {prTypes.length > 0 && (
+          <p class="wo-prs">
             {prTypes.map((t) => (
               <PrChip key={t} type={t} />
             ))}
-          </span>
-        ) : undefined
-      }
-      flush
-      class={cls}
-    >
-      <DataTable columns={setColumns(units, isDetailed)} rows={rows} rowKey={(r) => r.set.setId} dense empty="No sets recorded." />
-      {block.regions.length > 0 && (
-        <div class="wo-block__foot">
-          <RegionChips regions={block.regions} />
-        </div>
-      )}
-    </Card>
+          </p>
+        )}
+        {block.regions.length > 0 && (
+          <div class="wo-ex__regions">
+            <RegionChips regions={block.regions} />
+          </div>
+        )}
+      </header>
+      <div class="wo-ex__sets">
+        <DataTable columns={setColumns(units, isDetailed)} rows={rows} rowKey={(r) => r.set.setId} dense caption={`${block.name} sets`} empty="No sets recorded." />
+      </div>
+    </section>
   )
 }

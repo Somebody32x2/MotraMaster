@@ -1,125 +1,15 @@
 import { useId, useMemo, useState } from 'preact/hooks'
 import { analysisIndex, analysisWindow } from '../analysis'
 import { workoutSummaries } from '../core/analytics'
-import type { WorkoutSummary } from '../core/analytics/types'
-import type { Units } from '../core/types'
-import { paths } from '../router'
 import { dataset, detailed, settings } from '../state'
-import { Badge } from '../ui/components/Badge'
 import { Card } from '../ui/components/Card'
-import { DataTable, type Column } from '../ui/components/DataTable'
+import { InfoTip } from '../ui/components/InfoTip'
 import { PageHeader } from '../ui/components/PageHeader'
+import { StatStrip } from '../ui/components/StatStrip'
 import { StatTile } from '../ui/components/StatTile'
-import { formatDate, formatDuration, formatNumber, formatWeight, plural, unitLabel } from '../ui/format'
-import { RegionChips } from '../ui/widgets'
+import { formatDuration, formatNumber, formatWeight, plural, unitLabel } from '../ui/format'
 import { activeRange, mean } from './overview/util'
-
-function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
-  const cols: Column<WorkoutSummary>[] = [
-    {
-      id: 'date',
-      header: 'Date',
-      kind: 'number',
-      align: 'left',
-      value: (r) => r.date?.getTime() ?? null,
-      render: (r) => (
-        <span class="wo-date">
-          <span>{r.date ? formatDate(r.date, 'weekday') : 'Undated'}</span>
-          <span class="faint">
-            {r.date && <span class="dt-wide-only">{formatDate(r.date, 'time')} · </span>}
-            {r.date?.getFullYear()}
-          </span>
-        </span>
-      ),
-    },
-    {
-      id: 'title',
-      header: 'Workout',
-      kind: 'text',
-      value: (r) => r.workout.title,
-      render: (r) => (
-        <span class="wo-title">
-          <span>{r.workout.title || 'Workout'}</span>
-          {r.prCount > 0 && <Badge tone="accent">{plural(r.prCount, 'PR')}</Badge>}
-        </span>
-      ),
-    },
-    {
-      id: 'duration',
-      header: 'Duration',
-      kind: 'number',
-      value: (r) => r.durationSec,
-      render: (r) =>
-        r.trimmedSec > 0 ? (
-          <span class="wo-dur">
-            {formatDuration(r.durationSec)}
-            <span
-              class="wo-dur__trim"
-              title={`Trimmed ${formatDuration(r.trimmedSec)} idle after the last set (logged ${formatDuration(r.rawDurationSec)})`}
-            >
-              trimmed
-            </span>
-          </span>
-        ) : (
-          formatDuration(r.durationSec)
-        ),
-      priority: 2,
-    },
-    {
-      id: 'hard',
-      header: 'Hard sets',
-      kind: 'number',
-      priority: 2,
-      title: 'Working sets, excluding warm-ups',
-      value: (r) => r.hardSets,
-      render: (r) => (
-        <span title={`${plural(r.sets, 'set')} logged`}>
-          {formatNumber(r.hardSets, { maxDecimals: 0 })}
-          <span class="faint"> / {formatNumber(r.sets, { maxDecimals: 0 })}</span>
-        </span>
-      ),
-    },
-    { id: 'volume', header: 'Volume', kind: 'number', value: (r) => r.volumeLb, render: (r) => formatWeight(r.volumeLb, units, { compact: true }) },
-    { id: 'exercises', header: 'Exercises', kind: 'number', value: (r) => r.exercises, priority: 3 },
-    {
-      id: 'regions',
-      header: 'Muscles',
-      sortable: false,
-      render: (r) => (r.topRegions.length ? <RegionChips regions={r.topRegions} max={3} /> : <span class="faint">—</span>),
-      priority: 3,
-    },
-  ]
-  if (isDetailed) {
-    cols.push(
-      {
-        id: 'density',
-        header: 'Density',
-        kind: 'number',
-        title: 'Volume per minute of session time',
-        value: (r) => r.density,
-        render: (r) => (r.density != null ? `${formatWeight(r.density, units, { unit: false })} ${unitLabel(units)}/min` : '—'),
-        priority: 3,
-      },
-      {
-        id: 'kcalmin',
-        header: 'kcal/min',
-        kind: 'number',
-        value: (r) => r.kcalPerMin,
-        render: (r) => formatNumber(r.kcalPerMin, { maxDecimals: 1 }),
-        priority: 3,
-      },
-      {
-        id: 'calories',
-        header: 'Calories',
-        kind: 'number',
-        value: (r) => r.workout.calories,
-        render: (r) => formatNumber(r.workout.calories, { maxDecimals: 0 }),
-        priority: 3,
-      },
-    )
-  }
-  return cols
-}
+import { WorkoutTable } from './workouts/WorkoutTable'
 
 export default function WorkoutsPage() {
   const idx = analysisIndex.value
@@ -144,7 +34,6 @@ export default function WorkoutsPage() {
     }
     return m
   }, [rows, ds])
-  const cols = useMemo(() => columns(units, isDetailed), [units, isDetailed])
 
   if (!idx) return <PageHeader title="Workouts" />
 
@@ -154,13 +43,14 @@ export default function WorkoutsPage() {
   const avgHard = mean(rows.map((r) => r.hardSets))
   const avgVolume = mean(rows.map((r) => r.volumeLb))
   const avgCalories = mean(rows.map((r) => r.workout.calories))
+  const anyTrimmed = filtered.some((r) => r.trimmedSec > 0)
 
   return (
     <>
-      <PageHeader title="Workouts" eyebrow={activeRange().title} subtitle={rows.length ? `${plural(rows.length, 'workout')} in this range` : undefined} />
-      <div class="stack" style={{ '--gap': 'var(--s4)' }}>
-        <div class="stats-row">
-          <StatTile label="Workouts" value={formatNumber(rows.length, { maxDecimals: 0 })} />
+      <PageHeader title="Workouts" subtitle={rows.length ? `${activeRange().title}, ${plural(rows.length, 'workout')}` : activeRange().title} />
+      <div class="stack">
+        <StatStrip lead>
+          <StatTile label="Workouts" value={formatNumber(rows.length, { maxDecimals: 0 })} sub="in this range" />
           <StatTile label="Avg duration" value={formatDuration(avgDuration)} sub="per session" />
           <StatTile
             label="Avg hard sets"
@@ -177,35 +67,45 @@ export default function WorkoutsPage() {
               sub={avgCalories != null ? 'per session' : 'Not recorded'}
             />
           )}
-        </div>
+        </StatStrip>
 
-        <Card flush>
-          <div class="wo-toolbar">
-            <label class="sr-only" for={filterId}>
-              Filter workouts
-            </label>
-            <input
-              id={filterId}
-              class="input wo-filter"
-              type="search"
-              placeholder="Filter by title or exercise"
-              value={query}
-              autoComplete="off"
-              onInput={(e) => setQuery(e.currentTarget.value)}
-            />
-            <span class="faint num wo-count" aria-live="polite">
-              {q ? `${formatNumber(filtered.length, { maxDecimals: 0 })} of ${plural(rows.length, 'workout')}` : plural(rows.length, 'workout')}
-            </span>
-          </div>
-          <DataTable
-            columns={cols}
+        <Card
+          title="Workout log"
+          actions={
+            <div class="wo-toolbar">
+              <label class="sr-only" for={filterId}>
+                Filter workouts
+              </label>
+              <input
+                id={filterId}
+                class="input wo-filter"
+                type="search"
+                placeholder="Filter by title or exercise"
+                value={query}
+                autoComplete="off"
+                onInput={(e) => setQuery(e.currentTarget.value)}
+              />
+              {q && (
+                <span class="wo-count num" aria-live="polite">
+                  {formatNumber(filtered.length, { maxDecimals: 0 })} of {formatNumber(rows.length, { maxDecimals: 0 })}
+                </span>
+              )}
+            </div>
+          }
+        >
+          <WorkoutTable
             rows={filtered}
-            rowKey={(r) => r.workout.id}
-            rowHref={(r) => paths.workout(r.workout.id)}
-            initialSort={{ id: 'date', dir: 'desc' }}
-            caption="Workouts"
-            empty={q ? `No workouts match “${query.trim()}”.` : 'No workouts in this range. Try a longer range in the top bar.'}
+            units={units}
+            detailed={isDetailed}
+            empty={q ? `No workouts match “${query.trim()}”.` : 'No workouts in this range. Pick a longer range above.'}
           />
+          {anyTrimmed && (
+            <p class="wo-note">
+              <span aria-hidden="true">* </span>
+              Idle time after the last set was trimmed
+              <InfoTip text="The workout kept running after your last set, so time beyond the logged set and rest times plus the grace period was trimmed. Long rests between sets are kept. Adjust this in Settings." />
+            </p>
+          )}
         </Card>
       </div>
     </>

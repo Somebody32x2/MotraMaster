@@ -1,7 +1,6 @@
 import type { WeekdayStat } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
-import { Badge } from '../../ui/components/Badge'
-import { formatNumber, formatPercent } from '../../ui/format'
+import { EMPTY, formatNumber, formatPercent } from '../../ui/format'
 import { RegionChips } from '../../ui/widgets'
 import { WEEKDAY_LONG, WEEKDAY_SHORT, type MetricDef, type MetricScale } from './metrics'
 
@@ -43,7 +42,7 @@ export function WeekdayPanel({ weekdays, metric, scale, units, topDay }: Weekday
             <span class="wd-day" role="rowheader">
               <span aria-hidden="true">{WEEKDAY_SHORT[w.weekday]}</span>
               <span class="sr-only">{WEEKDAY_LONG[w.weekday]}</span>
-              {top && <Badge tone="accent">Most common</Badge>}
+              {top && <span class="wd-top">Most common</span>}
             </span>
             <span
               class="wd-hit"
@@ -51,10 +50,10 @@ export function WeekdayPanel({ weekdays, metric, scale, units, topDay }: Weekday
               data-label="Hit rate"
               title={`Trained on ${formatPercent(w.hitRate)} of ${WEEKDAY_LONG[w.weekday]}s in this range`}
             >
+              <span class="wd-hit__pct num">{formatPercent(w.hitRate, { decimals: 0 })}</span>
               <span class="wd-bar" aria-hidden="true">
                 <span class="wd-bar__fill" style={{ width: `${Math.max(0, Math.min(1, w.hitRate)) * 100}%` }} />
               </span>
-              <span class="wd-hit__pct num">{formatPercent(w.hitRate, { decimals: 0 })}</span>
             </span>
             <span class="wd-num num" role="cell" data-label="Workouts">
               {formatNumber(w.workouts, { maxDecimals: 0 })}
@@ -62,10 +61,10 @@ export function WeekdayPanel({ weekdays, metric, scale, units, topDay }: Weekday
             </span>
             <span class="wd-num wd-avg num" role="cell" data-label={avgHeader}>
               {level > 0 && <span class={`cal-swatch cal-day--l${level}`} aria-hidden="true" />}
-              {w.workouts > 0 ? metric.format(avg, units) : '—'}
+              {w.workouts > 0 ? metric.format(avg, units) : <span class="faint">{EMPTY}</span>}
             </span>
             <span class="wd-regions" role="cell">
-              {w.topRegions.length ? <RegionChips regions={w.topRegions} max={3} /> : <span class="faint">—</span>}
+              {w.topRegions.length ? <RegionChips regions={w.topRegions} max={3} /> : <span class="faint">{EMPTY}</span>}
             </span>
           </div>
         )

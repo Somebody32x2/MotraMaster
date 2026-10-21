@@ -10,7 +10,7 @@ import { Card } from '../ui/components/Card'
 import { EmptyState } from '../ui/components/EmptyState'
 import { PageHeader } from '../ui/components/PageHeader'
 import { Segmented, type SegmentedOption } from '../ui/components/Segmented'
-import { plural } from '../ui/format'
+import { formatNumber, plural } from '../ui/format'
 import { IconMuscles } from '../ui/icons'
 import { bandOf, FRACTIONAL_INFO } from './muscles/bands'
 import { MuscleList } from './muscles/MuscleList'
@@ -21,9 +21,9 @@ type SortKey = 'sets' | 'anatomy' | 'recent'
 type Measure = 'direct' | 'fractional'
 
 const SORT_OPTIONS: SegmentedOption<SortKey>[] = [
-  { value: 'sets', label: 'Weekly sets', title: 'Most weekly sets first' },
+  { value: 'sets', label: 'Sets', title: 'Most weekly sets first' },
   { value: 'anatomy', label: 'Head to toe', title: 'Anatomical order, top to bottom' },
-  { value: 'recent', label: 'Last trained', title: 'Most recently trained first' },
+  { value: 'recent', label: 'Recent', title: 'Most recently trained first' },
 ]
 
 const MEASURE_OPTIONS: SegmentedOption<Measure>[] = [
@@ -85,23 +85,25 @@ export default function MusclesPage() {
     else if (b === 'none') counts.none++
     else counts.below++
   }
-  const summaryLine = [
-    `${counts.target} in the 10–20 range`,
-    counts.below > 0 && `${counts.below} below`,
-    counts.high > 0 && `${counts.high} above 20`,
-    counts.none > 0 && `${counts.none} not trained`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-
   const other = summaries.find((m) => m.region === 'other')
   const trained = summaries.some((m) => setsOf(m) > 0 || m.windowSets > 0)
+
+  const summaryLine = trained
+    ? [
+        `${plural(counts.target, 'muscle')} in the 10–20 set range`,
+        counts.below > 0 && `${formatNumber(counts.below)} below`,
+        counts.high > 0 && `${formatNumber(counts.high)} above`,
+        counts.none > 0 && `${formatNumber(counts.none)} not trained`,
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : `${plural(0, 'hard set')} in this range`
 
   return (
     <>
       <PageHeader
         title="Muscles"
-        subtitle="Hard sets per muscle in the 7 days ending at your latest workout in range, against the 10–20 weekly-set range."
+        subtitle={summaryLine}
         actions={
           isDetailed ? (
             <Segmented options={MEASURE_OPTIONS} value={measure} onChange={setMeasure} label="Set counting" size="sm" />
@@ -112,8 +114,8 @@ export default function MusclesPage() {
       <div class="muscles-layout">
         <Card
           class="muscles-layout__map"
-          title={fractional ? 'Fractional sets, last 7 days' : 'Sets, last 7 days'}
-          info={fractional ? FRACTIONAL_INFO : 'Each region is shaded by its weekly hard sets: under 5, 5–9, the 10–20 typical range, and above 20.'}
+          title={fractional ? 'Fractional sets, last 7 days' : 'Last 7 days'}
+          info={fractional ? FRACTIONAL_INFO : undefined}
         >
           <BodyMap
             values={values}
@@ -126,15 +128,13 @@ export default function MusclesPage() {
         </Card>
 
         <Card
-          flush
           class="muscles-layout__list"
-          title="Ranking"
-          subtitle={trained ? summaryLine : plural(0, 'hard set') + ' in this range'}
+          title="Weekly sets by muscle"
           actions={<Segmented options={SORT_OPTIONS} value={sort} onChange={setSort} label="Sort muscles" size="sm" />}
         >
           {rows.length === 0 ? (
             <EmptyState plain title="Nothing logged in this range">
-              Pick a longer range in the top bar to include older workouts.
+              Pick a longer range above to include older workouts.
             </EmptyState>
           ) : (
             <MuscleList

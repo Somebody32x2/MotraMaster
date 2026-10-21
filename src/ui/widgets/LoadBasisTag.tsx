@@ -20,9 +20,9 @@ export function loadBasisText(basis: LoadBasis, weightLb: number | null, units: 
     case 'bodyweightUnknown':
       return w > 0 ? `${formatWeight(w, units)} · BW?` : 'BW?'
     case 'external':
-      return w > 0 ? formatWeight(w, units) : '—'
+      return w > 0 ? formatWeight(w, units) : '–'
     default:
-      return w > 0 ? formatWeight(w, units) : '—'
+      return w > 0 ? formatWeight(w, units) : '–'
   }
 }
 

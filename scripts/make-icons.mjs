@@ -1,31 +1,38 @@
-// Rasterizes the MotraMaster mark into the PNG icons the PWA manifest needs.
+// Rasterizes the MotraMaster mark (two stacked accent bars on ink) into the PNG icons the PWA manifest needs.
 // Node built-ins only (zlib for deflate). Run: node scripts/make-icons.mjs
-// Geometry mirrors public/favicon.svg (32-unit grid) and public/pwa-maskable.svg (512-unit grid).
+// The maskable geometry mirrors public/pwa-maskable.svg (512-unit grid); public/favicon.svg is the transparent variant.
 import { writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 
-const BG = [0x0b, 0x72, 0x68]
-const FG = [0xf6, 0xf5, 0xf2]
+const BG = [0x18, 0x18, 0x1b] // ink
+const FG = [0xec, 0x7a, 0x45] // accent (dark-theme value, for contrast on ink)
 const SS = 4 // supersamples per axis
 
-/** Standard icon: rounded tile on transparent canvas. */
+/** Two stacked bars of different length: a progression step. */
+const BARS_32 = [
+  { x: 7, y: 9.5, w: 10, h: 5, r: 1 },
+  { x: 7, y: 17.5, w: 18, h: 5, r: 1 },
+]
+
+/** Standard icon: rounded ink tile on transparent canvas. */
 const standard = {
   view: 32,
-  rect: { x: 0, y: 0, w: 32, h: 32, r: 7.5 },
-  line: [[8, 22.5], [8, 10], [16, 17.5], [24, 10], [24, 22.5]],
-  stroke: 3,
+  rect: { x: 0, y: 0, w: 32, h: 32, r: 7 },
+  bars: BARS_32,
 }
 
-/** Full-bleed tile with the mark inside the maskable safe zone. */
+/** Full-bleed ink tile with the mark inside the maskable safe zone. */
 const maskable = {
   view: 512,
   rect: { x: 0, y: 0, w: 512, h: 512, r: 0 },
-  line: [[176, 336], [176, 176], [256, 251], [336, 176], [336, 336]],
-  stroke: 30,
+  bars: [
+    { x: 136, y: 186, w: 134, h: 60, r: 10 },
+    { x: 136, y: 266, w: 240, h: 60, r: 10 },
+  ],
 }
 
-/** Full-bleed tile, larger mark (iOS applies its own corner mask). */
+/** Full-bleed tile (iOS applies its own corner mask). */
 const touch = { ...standard, rect: { x: 0, y: 0, w: 32, h: 32, r: 0 } }
 
 function insideRoundedRect(px, py, { x, y, w, h, r }) {
@@ -38,26 +45,8 @@ function insideRoundedRect(px, py, { x, y, w, h, r }) {
   return dx * dx + dy * dy <= r * r
 }
 
-function distToSegment(px, py, [ax, ay], [bx, by]) {
-  const vx = bx - ax
-  const vy = by - ay
-  const len2 = vx * vx + vy * vy
-  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / len2))
-  const dx = px - (ax + t * vx)
-  const dy = py - (ay + t * vy)
-  return Math.sqrt(dx * dx + dy * dy)
-}
-
-function onLine(px, py, pts, half) {
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (distToSegment(px, py, pts[i], pts[i + 1]) <= half) return true
-  }
-  return false
-}
-
 function render(spec, size) {
   const scale = spec.view / size
-  const half = spec.stroke / 2
   const out = Buffer.alloc(size * size * 4)
   const n = SS * SS
   for (let y = 0; y < size; y++) {
@@ -70,7 +59,7 @@ function render(spec, size) {
           const py = (y + (sy + 0.5) / SS) * scale
           if (insideRoundedRect(px, py, spec.rect)) {
             tile++
-            if (onLine(px, py, spec.line, half)) mark++
+            if (spec.bars.some((b) => insideRoundedRect(px, py, b))) mark++
           }
         }
       }

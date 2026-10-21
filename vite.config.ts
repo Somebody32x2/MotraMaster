@@ -19,9 +19,9 @@ export default defineConfig({
         name: 'MotraMaster',
         short_name: 'MotraMaster',
         description:
-          'Private, offline workout analytics for Motra exports. Trends, estimated 1RM and muscle balance — parsed entirely on your device.',
-        theme_color: '#f6f5f2',
-        background_color: '#f6f5f2',
+          'Private, offline workout analytics for Motra exports. Trends, estimated 1RM and muscle balance, parsed entirely on your device.',
+        theme_color: '#fbfbfa',
+        background_color: '#fbfbfa',
         display: 'standalone',
         start_url: './',
         scope: './',

@@ -12,7 +12,7 @@ export { ScatterChart } from './ScatterChart';
 export type { ScatterChartProps, ScatterPoint } from './ScatterChart';
 export { Donut } from './Donut';
 export type { DonutProps, DonutSlice } from './Donut';
-export { Legend, PALETTE, paletteColor } from './common';
+export { Legend, PALETTE, paletteColor, rampColor } from './common';
 export type { LegendItem } from './common';
 export {
   linearScale,

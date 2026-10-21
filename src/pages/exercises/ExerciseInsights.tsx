@@ -2,16 +2,15 @@ import { Fragment } from 'preact'
 import type { ExerciseDetail, StrengthLevel } from '../../core/analytics/types'
 import type { Sex, Units } from '../../core/types'
 import { href, paths } from '../../router'
-import { BarChart, type BarDatum } from '../../ui/charts'
+import { BarChart, rampColor, type BarDatum } from '../../ui/charts'
 import { Card } from '../../ui/components/Card'
-import { InfoTip } from '../../ui/components/InfoTip'
 import { formatNumber, formatPercent, formatRest } from '../../ui/format'
 import { formatRate } from '../../ui/widgets'
 import { SimpleLineChart } from './E1rmChart'
 import { displayWeightFormat, weightPoints } from './util'
 
 function signedPct(ratio: number | null): { text: string; tone: string } {
-  if (ratio == null || !Number.isFinite(ratio)) return { text: '—', tone: 'delta--flat' }
+  if (ratio == null || !Number.isFinite(ratio)) return { text: '–', tone: 'faint' }
   return { text: formatPercent(ratio, { sign: true }), tone: ratio > 0 ? 'delta--pos' : ratio < 0 ? 'delta--neg' : 'delta--flat' }
 }
 
@@ -23,10 +22,7 @@ export function ChangeCard({ d }: { d: ExerciseDetail }) {
     ['365 days', d.deltas.d365],
   ]
   return (
-    <Card
-      title="e1RM change"
-      info="Change in estimated 1RM over each look-back, when you have sessions that far back. The rate is a Theil–Sen slope over 90 days, which shrugs off single bad days."
-    >
+    <Card title="e1RM change">
       <dl class="kv">
         {rows.map(([label, v]) => {
           const { text, tone } = signedPct(v)
@@ -57,7 +53,7 @@ export function LoadCharts({ d, units }: { d: ExerciseDetail; units: Units }) {
           empty="No weighted sets in this range."
         />
       </Card>
-      <Card title="Session volume" subtitle="Weight × reps per session" info="Volume load for this exercise in each workout. Dumbbell work is per hand, as logged.">
+      <Card title="Session volume" subtitle="Weight × reps per session; dumbbells per hand">
         <SimpleLineChart
           points={weightPoints(d.sessionVolume, units)}
           label={`Session volume for ${d.name}`}
@@ -77,7 +73,12 @@ const REP_LABELS = ['1–5', '6–12', '13–20', '21+']
 function shareBars(labels: string[], shares: number[]): BarDatum[] | null {
   const total = shares.reduce((n, v) => n + (Number.isFinite(v) ? v : 0), 0)
   if (!(total > 0)) return null
-  return labels.map((label, i) => ({ key: label, label, values: Number.isFinite(shares[i]) ? shares[i] : 0 }))
+  return labels.map((label, i) => ({
+    key: label,
+    label,
+    values: Number.isFinite(shares[i]) ? shares[i] : 0,
+    color: rampColor(i, labels.length),
+  }))
 }
 
 /** D5: %e1RM zones and rep-range mix of hard sets. */
@@ -88,11 +89,7 @@ export function DistributionCards({ d }: { d: ExerciseDetail }) {
   return (
     <>
       {d.valueUnit === 'lb' && (
-        <Card
-          title="Intensity zones"
-          subtitle="Hard sets by % of your recent best e1RM"
-          info="Each hard set's weight relative to the best e1RM in the trailing 8 weeks. Heavier zones build more strength; growth is similar across loads taken near failure (Schoenfeld 2017)."
-        >
+        <Card title="Intensity zones" subtitle="Hard sets by % of your best e1RM in the last 8 weeks">
           {zones ? (
             <BarChart data={zones} orientation="horizontal" valueFormat={pct} ariaLabel="Intensity zone distribution" />
           ) : (
@@ -126,35 +123,26 @@ export function SetQualityCard({ d }: { d: ExerciseDetail }) {
     <Card title="Set quality" subtitle="From watch timing and rep counts">
       <dl class="quality">
         <div class="quality__item">
-          <dt>
-            Median rest
-            <InfoTip text="Excludes the first set of each block, zero and >10 min rests. Over ~60 s gives a small growth edge, with little extra past ~90 s (Singer 2024)." />
-          </dt>
+          <dt>Median rest</dt>
           <dd class="quality__value">{formatRest(rest)}</dd>
           <dd class="quality__note">
             {rest == null ? 'No rest times logged.' : shortRest ? 'Under 60 s: on the short side for growth.' : 'Enough for most of the rest benefit.'}
           </dd>
         </div>
         <div class="quality__item">
-          <dt>
-            Tempo
-            <InfoTip text="Set duration ÷ reps from the watch; outliers below 0.3 or above 15 s/rep are ignored." />
-          </dt>
+          <dt>Tempo</dt>
           <dd class="quality__value">
-            {d.medianSecPerRep != null ? `${formatNumber(d.medianSecPerRep, { maxDecimals: 1 })} s/rep` : '—'}
+            {d.medianSecPerRep != null ? `${formatNumber(d.medianSecPerRep, { maxDecimals: 1 })} s/rep` : <span class="faint">–</span>}
           </dd>
           <dd class={tempo?.tone === 'warn' ? 'quality__note is-warn' : 'quality__note'}>
             {tempo ? tempo.text : 'No set durations logged.'}
           </dd>
         </div>
         <div class="quality__item">
-          <dt>
-            Fatigue drop-off
-            <InfoTip text="Average share of reps lost from the first to the last set at the same weight, in sessions with 3+ such sets. Rising drop-off can precede a plateau." />
-          </dt>
-          <dd class="quality__value">{d.fatigueDropoff != null ? formatPercent(d.fatigueDropoff, { decimals: 0 }) : '—'}</dd>
+          <dt>Fatigue drop-off</dt>
+          <dd class="quality__value">{d.fatigueDropoff != null ? formatPercent(d.fatigueDropoff, { decimals: 0 }) : <span class="faint">–</span>}</dd>
           <dd class="quality__note">
-            {d.fatigueDropoff == null ? 'Needs 3+ sets at one weight in a session.' : 'Rep loss across straight sets.'}
+            {d.fatigueDropoff == null ? 'Needs 3+ sets at one weight in a session.' : 'Reps lost from first to last set at one weight.'}
           </dd>
         </div>
       </dl>

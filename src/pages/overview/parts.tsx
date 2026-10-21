@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { paletteColor } from '../../ui/charts'
+import { rampColor } from '../../ui/charts'
 import { formatPercent } from '../../ui/format'
 import { shares } from './util'
 
@@ -8,7 +8,7 @@ export function Metric({ label, value, note }: { label: ComponentChildren; value
   return (
     <div class="ov-metric">
       <span class="ov-metric__label">{label}</span>
-      <span class="ov-metric__value num">{value}</span>
+      <span class="ov-metric__value tnum">{value}</span>
       {note != null && <span class="ov-metric__note">{note}</span>}
     </div>
   )
@@ -28,11 +28,11 @@ export interface ShareItem {
   detail?: string
 }
 
-/** 100% stacked bar with a legend of shares. */
+/** 100% stacked bar with a legend of shares. Items are ordered categories, so default colors follow the accent ramp. */
 export function ShareBar({ items, label, empty = 'No data for this range.' }: { items: ShareItem[]; label: string; empty?: string }) {
   const sh = shares(items.map((i) => i.value))
   if (!sh.some((x) => x > 0)) return <CardEmpty>{empty}</CardEmpty>
-  const rows = items.map((it, i) => ({ ...it, color: it.color ?? paletteColor(i), share: sh[i] }))
+  const rows = items.map((it, i) => ({ ...it, color: it.color ?? rampColor(i, items.length), share: sh[i] }))
   const summary = `${label}: ${rows.map((r) => `${r.label} ${formatPercent(r.share)}`).join(', ')}`
   return (
     <div class="ov-share">

@@ -7,17 +7,10 @@ import { ConfirmButton } from '../ui/components/ConfirmButton'
 import { Dropzone } from '../ui/components/Dropzone'
 import { PageHeader } from '../ui/components/PageHeader'
 import { Segmented, type SegmentedOption } from '../ui/components/Segmented'
-import { formatDate, formatRelative, plural } from '../ui/format'
-import {
-  IconAlert,
-  IconCheck,
-  IconChevronRight,
-  IconLock,
-  IconMuscles,
-  IconOffline,
-  IconTrash,
-  IconTrend,
-} from '../ui/icons'
+import { StatStrip } from '../ui/components/StatStrip'
+import { StatTile } from '../ui/components/StatTile'
+import { formatDate, formatNumber, formatRelative, plural } from '../ui/format'
+import { IconAlert, IconCheck, IconChevronRight, IconLock, IconTrash } from '../ui/icons'
 
 type Mode = 'merge' | 'replace'
 
@@ -47,40 +40,24 @@ function ExportSteps() {
   return (
     <ol class="steps" role="list">
       <li>
-        <span class="steps__n">1</span>
-        <div>
+        <span>
           <strong>Open Motra</strong> on the device where your workouts are recorded.
-        </div>
+        </span>
       </li>
       <li>
-        <span class="steps__n">2</span>
-        <div>
-          Find the <strong>export</strong> option for your workout history — usually in your profile or settings.
-        </div>
+        <span>
+          Find the <strong>export</strong> option for your workout history, usually under profile or settings.
+        </span>
       </li>
       <li>
-        <span class="steps__n">3</span>
-        <div>
-          Choose <strong>Excel (.xlsx)</strong> and save or share the file to this device.
-        </div>
+        <span>
+          Choose <strong>Excel (.xlsx)</strong> and save the file to this device.
+        </span>
       </li>
       <li>
-        <span class="steps__n">4</span>
-        <div>Drop the file above. Import again whenever you want to bring in newer sessions.</div>
+        <span>Drop the file on this page. Import again any time to bring in newer sessions.</span>
       </li>
     </ol>
-  )
-}
-
-function PrivacyNote() {
-  return (
-    <div class="callout">
-      <IconLock size={16} />
-      <p>
-        <strong>Your data never leaves this device.</strong> Files are read in your browser and stored locally. There is
-        no server, no account and no tracking — MotraMaster keeps working offline.
-      </p>
-    </div>
   )
 }
 
@@ -125,7 +102,7 @@ function ResultSummary({ outcome, onboarding }: { outcome: Outcome; onboarding: 
             <IconChevronRight size={14} />
             {plural(warnings.length, 'note')} from the parser
             <span class="faint" style={{ fontWeight: 400 }}>
-              — rows that were skipped or interpreted
+              rows that were skipped or interpreted
             </span>
           </summary>
           <ul role="list" class="warnings">
@@ -146,24 +123,6 @@ function ResultSummary({ outcome, onboarding }: { outcome: Outcome; onboarding: 
     </div>
   )
 }
-
-const FEATURES = [
-  {
-    icon: IconTrend,
-    title: 'Trends that matter',
-    body: 'Volume, frequency and estimated 1RM over time, per exercise and per muscle group.',
-  },
-  {
-    icon: IconMuscles,
-    title: 'Muscle balance',
-    body: 'A body map of where your training load actually goes — and what is being neglected.',
-  },
-  {
-    icon: IconOffline,
-    title: 'Private and offline',
-    body: 'Parsed entirely on this device. Install it as an app and it works without a connection.',
-  },
-]
 
 export default function ImportPage() {
   const ds = dataset.value
@@ -214,43 +173,39 @@ export default function ImportPage() {
 
   if (!hasData) {
     return (
-      <div class="stack" style={{ '--gap': 'var(--s6)' }}>
+      <div class="import-first">
         <PageHeader
-          eyebrow="MotraMaster"
-          title="See what your training is really doing"
-          subtitle="Bring in your Motra workout export to get volume trends, estimated one-rep maxes and muscle balance — calculated right here in your browser."
+          title="Import your Motra workouts"
+          subtitle="One export gives you volume trends, estimated one-rep maxes and muscle balance across every session you have logged."
         />
         <div class="stack">
           {dropzone}
           {feedback}
-          <PrivacyNote />
         </div>
-        <ul role="list" class="features">
-          {FEATURES.map(({ icon: Icon, title, body }) => (
-            <li key={title}>
-              <Icon size={18} />
-              <div>
-                <p class="features__title">{title}</p>
-                <p class="features__body">{body}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <Card title="How to export from Motra" subtitle="Takes about a minute.">
+        <section class="import-first__howto" aria-labelledby="howto-title">
+          <h2 id="howto-title" class="import-first__title">
+            How to export from Motra
+          </h2>
           <ExportSteps />
-        </Card>
+        </section>
+        <p class="import-privacy">
+          <IconLock size={14} />
+          Files are read in your browser and stored on this device. No account, no server, and it works offline.
+        </p>
       </div>
     )
   }
 
   const first = ds.workouts.find((w) => w.start)?.start ?? null
   const last = latestWorkoutDate.value
+  const imported = new Date(ds.importedAt)
 
   return (
-    <div class="stack" style={{ '--gap': 'var(--s5)' }}>
-      <PageHeader title="Import" subtitle="Add newer exports or start over. Files are processed on this device." />
+    <div class="stack">
+      <PageHeader title="Import" subtitle="Add newer exports or start over. Files never leave this device." />
 
       <Card
+        quiet
         title="Stored data"
         actions={
           outcome && outcome.total > 0 ? (
@@ -260,45 +215,38 @@ export default function ImportPage() {
           ) : undefined
         }
       >
-        <dl class="kv">
-          <dt>Workouts</dt>
-          <dd>{ds.workouts.length}</dd>
-          <dt>Date span</dt>
-          <dd>
-            {first ? formatDate(first) : '—'} – {last ? formatDate(last) : '—'}
-          </dd>
-          <dt>Source files</dt>
-          <dd>{ds.sourceFiles.length}</dd>
-          <dt>Last import</dt>
-          <dd title={formatDate(new Date(ds.importedAt), 'datetime')}>{formatRelative(new Date(ds.importedAt))}</dd>
-        </dl>
+        <StatStrip lead>
+          <StatTile lead label="Workouts" value={formatNumber(ds.workouts.length, { maxDecimals: 0 })} sub={first ? `since ${formatDate(first)}` : undefined} />
+          <StatTile label="Latest workout" value={formatDate(last)} sub={last ? formatRelative(last) : undefined} />
+          <StatTile label="Source files" value={formatNumber(ds.sourceFiles.length, { maxDecimals: 0 })} />
+          <StatTile
+            label="Last import"
+            value={<span title={formatDate(imported, 'datetime')}>{formatRelative(imported)}</span>}
+            sub={formatDate(imported, 'medium')}
+          />
+        </StatStrip>
       </Card>
 
       <Card title="Add files">
-        <div class="stack">
-          <div class="import-mode">
-            <Segmented label="Import mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
-            <p class="muted import-mode__desc">{MODE_DESC[mode]}</p>
+        <div class="import-add">
+          <div class="stack">
+            <div class="import-mode">
+              <Segmented label="Import mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+              <p class="muted import-mode__desc">{MODE_DESC[mode]}</p>
+            </div>
+            {dropzone}
+            {feedback}
           </div>
-          {dropzone}
-          {feedback}
-          <PrivacyNote />
+          <aside class="import-add__howto" aria-labelledby="howto-title">
+            <h4 id="howto-title" class="import-add__title">
+              How to export from Motra
+            </h4>
+            <ExportSteps />
+          </aside>
         </div>
       </Card>
 
-      <Card quiet>
-        <details class="disclosure">
-          <summary>
-            <IconChevronRight size={14} />
-            How to export from Motra
-          </summary>
-          <div style={{ marginTop: 16 }}>
-            <ExportSteps />
-          </div>
-        </details>
-      </Card>
-
-      <Card title="Remove data" subtitle="Deletes every stored workout from this device. Your settings are kept.">
+      <Card title="Remove data" subtitle="Deletes every stored workout from this device. Settings are kept.">
         <ConfirmButton
           label="Clear all data"
           icon={<IconTrash size={16} />}

@@ -38,14 +38,14 @@ export type ValueUnit = 'lb' | 'sec' | 'reps'
 
 /** Hold time: '45s' under a minute, else clock style '1:45'. */
 export function formatHold(sec: number | null | undefined): string {
-  if (sec == null || !Number.isFinite(sec) || sec < 0) return '—'
+  if (sec == null || !Number.isFinite(sec) || sec < 0) return '–'
   const s = Math.round(sec)
   return s < 60 ? `${s}s` : formatRest(s)
 }
 
 /** Value for a series in `unit` (axis/tooltip helper). */
 export function formatUnitValue(v: number, unit: ValueUnit, units: Units): string {
-  if (!Number.isFinite(v)) return '—'
+  if (!Number.isFinite(v)) return '–'
   if (unit === 'sec') return formatHold(v)
   if (unit === 'reps') return `${reps(v)} reps`
   return formatWeight(v, units)
@@ -53,7 +53,7 @@ export function formatUnitValue(v: number, unit: ValueUnit, units: Units): strin
 
 /** Compact value: actual → "175 lb × 5", e1rm → "201 lb", sec → "1:45 +25 lb", reps → "12 reps". */
 export function formatStrength(s: SessionStrength | null | undefined, metric: StrengthMetric, units: Units, unit: ValueUnit = 'lb'): string {
-  if (!s || !Number.isFinite(s.value)) return '—'
+  if (!s || !Number.isFinite(s.value)) return '–'
   if (unit === 'sec') {
     const hold = formatHold(s.holdSec ?? s.value)
     return s.weightLb > 0 ? `${hold} +${formatWeight(s.weightLb, units)}` : hold

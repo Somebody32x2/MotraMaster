@@ -9,6 +9,16 @@ export function paletteColor(i: number): string {
   return PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
 }
 
+/**
+ * Ordered/intensity color: maps step `i` of `n` (0-based) onto the accent ramp
+ * `--ramp-1..--ramp-5`, spreading evenly so the last step is always the accent.
+ */
+export function rampColor(i: number, n: number): string {
+  if (!(n > 1)) return 'var(--ramp-5)';
+  const t = Math.min(1, Math.max(0, i / (n - 1)));
+  return `var(--ramp-${1 + Math.round(t * 4)})`;
+}
+
 export const FONT_SIZE = 11;
 
 /** Rough rendered width of `text` in the chart label font (tabular numerals). */

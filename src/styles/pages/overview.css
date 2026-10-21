@@ -1,0 +1,580 @@
+/* ---------- Overview (the .ov-grid spans are also used by workout detail) ---------- */
+.ov-grid {
+  display: grid;
+  gap: var(--s4);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.ov-grid > * {
+  min-width: 0;
+}
+
+.ov-grid > .card {
+  align-self: stretch;
+}
+
+/* Tablet: halves pair up; asymmetric pairs stack rather than leave orphan gaps. */
+@media (min-width: 720px) {
+  .ov-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .ov-span-6 {
+    grid-column: span 6;
+  }
+  .ov-span-4,
+  .ov-span-5,
+  .ov-span-7,
+  .ov-span-8,
+  .ov-span-12 {
+    grid-column: span 12;
+  }
+}
+
+@media (min-width: 1100px) {
+  .ov-span-4 {
+    grid-column: span 4;
+  }
+  .ov-span-5 {
+    grid-column: span 5;
+  }
+  .ov-span-7 {
+    grid-column: span 7;
+  }
+  .ov-span-8 {
+    grid-column: span 8;
+  }
+}
+
+.ov-section {
+  margin-top: var(--s4);
+}
+
+/* Ink link for names inside data (exercises, muscles). */
+.ov-link {
+  color: var(--text);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.ov-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+}
+
+/* ---------- Lede: hero sentence + stat strip ---------- */
+.ov-lede {
+  margin-bottom: var(--block-gap);
+}
+
+.ov-hero {
+  max-width: 50em;
+  margin-bottom: var(--s6);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.ov-hero__n {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .ov-hero {
+    font-size: 24px;
+  }
+}
+
+/* ---------- Small figures inside blocks ---------- */
+.ov-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--s3) var(--s5);
+  margin-bottom: var(--s4);
+}
+
+.ov-metrics:last-child {
+  margin-bottom: 0;
+}
+
+.ov-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ov-metric__label {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.ov-metric__value,
+.ov-big {
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-metric__note {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.ov-metric + .mm-chart,
+.ov-metric + .mm-bar-chart {
+  margin-top: var(--s3);
+}
+
+.ov-empty,
+.ov-prompt {
+  max-width: 65ch;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.ov-note {
+  max-width: 65ch;
+  margin-top: var(--s3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.ov-subhead {
+  margin-bottom: var(--s2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* ---------- Consistency ---------- */
+.ov-consist__lead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--text-muted);
+}
+
+.ov-figure {
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.ov-consist__note {
+  margin-top: var(--s1);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.ov-facts {
+  margin: var(--s4) 0 var(--s5);
+}
+
+.ov-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--grid);
+}
+
+.ov-facts > div:last-child {
+  border-bottom: 1px solid var(--grid);
+}
+
+.ov-facts dt {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.ov-facts dd {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.ov-facts__note {
+  margin-left: var(--s2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* ---------- Body map beside a ranked list ---------- */
+.ov-muscle {
+  container-type: inline-size;
+}
+
+.ov-muscle__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5) var(--s6);
+  align-items: start;
+}
+
+@container (min-width: 560px) {
+  .ov-muscle__grid {
+    grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
+  }
+}
+
+.ov-muscle__list {
+  min-width: 0;
+}
+
+/* ---------- Compact table (top lifts) ---------- */
+.ov-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-base);
+}
+
+.ov-table th {
+  padding: 0 var(--s3) var(--s2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ov-table td {
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--grid);
+  vertical-align: middle;
+  white-space: nowrap;
+  transition: background-color 150ms var(--ease);
+}
+
+.ov-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ov-table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+.ov-table :is(th, td):first-child {
+  padding-left: 0;
+}
+
+.ov-table :is(th, td):last-child {
+  padding-right: 0;
+}
+
+.ov-table .is-right {
+  text-align: right;
+}
+
+.ov-table td.num {
+  font-size: var(--fs-sm);
+}
+
+/* The name column takes the slack and truncates; the rest shrink to fit. */
+.ov-table__name {
+  width: 100%;
+  max-width: 0;
+}
+
+.ov-table__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ov-table__title a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.ov-table__meta {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.ov-table__spark {
+  width: 84px;
+  line-height: 0;
+}
+
+.ov-table__trend {
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 479px) {
+  .ov-table__spark,
+  .ov-table__opt {
+    display: none;
+  }
+}
+
+/* ---------- 100% share bar ---------- */
+.ov-share__bar {
+  display: flex;
+  height: 8px;
+  gap: 2px;
+}
+
+.ov-share__bar > span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 2px;
+}
+
+.ov-share__legend {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s1) var(--s4);
+  font-size: var(--fs-sm);
+}
+
+.ov-share__legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.ov-share__legend li.is-zero {
+  color: var(--text-faint);
+}
+
+.ov-share__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-swatch {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Balance ratios: number first, thin split bar under it ---------- */
+.ov-split-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ov-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px var(--s4);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--grid);
+}
+
+.ov-split:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ov-split__name {
+  min-width: 0;
+  color: var(--text);
+}
+
+.ov-split__ratio {
+  grid-row: span 2;
+  align-self: center;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.ov-split__ratio.faint {
+  color: var(--text-faint);
+}
+
+.ov-split__sets {
+  grid-column: 1;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.ov-split__bar {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 2px;
+  height: 3px;
+  margin-top: var(--s2);
+}
+
+.ov-split__bar > span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 1px;
+}
+
+/* ---------- Relative strength ---------- */
+.ov-rel {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.ov-rel li + li {
+  padding-top: var(--s3);
+  border-top: 1px solid var(--grid);
+}
+
+.ov-rel__head,
+.ov-rel__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.ov-rel__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.ov-rel__ratio {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.ov-rel__unit {
+  margin-left: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.ov-rel__meta {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.ov-rel__meta .num {
+  font-size: var(--fs-xs);
+}
+
+.ov-rel__level {
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.ov-rel__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ov-progress {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--grid);
+}
+
+.ov-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* ---------- More detail: one heading, two-column flow ---------- */
+.ov-more {
+  margin-top: var(--block-gap);
+}
+
+.ov-more__title {
+  margin-bottom: var(--s5);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.ov-flow {
+  column-gap: var(--s6);
+}
+
+.ov-flow > * {
+  break-inside: avoid;
+  margin-bottom: var(--block-gap);
+}
+
+@media (min-width: 900px) {
+  .ov-flow {
+    columns: 2;
+  }
+}
+
+/* ---------- Plain link list (new exercises) ---------- */
+.ov-plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 2 200px;
+  column-gap: var(--s5);
+}
+
+.ov-plain-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s1) 0;
+  break-inside: avoid;
+  font-size: var(--fs-sm);
+}
+
+.ov-plain-list a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

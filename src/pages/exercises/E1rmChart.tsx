@@ -20,7 +20,7 @@ export function E1rmChart({ d, units, height = 260 }: { d: ExerciseDetail; units
     return { x: s.date, y: toDisplayWeight(s.value, units), label }
   })
   const series: LineSeries[] = [
-    { id: 'session', label: actual ? 'Heaviest set' : 'Session e1RM', color: 'var(--text-faint)', points: sessionPoints, showPoints: true },
+    { id: 'session', label: actual ? 'Heaviest set' : 'Session e1RM', color: 'var(--text)', points: sessionPoints, showPoints: true },
   ]
   if (d.trend.length > 1) {
     series.push({ id: 'trend', label: 'Trend (21-day)', color: 'var(--accent)', points: weightPoints(d.trend, units) })
@@ -68,7 +68,7 @@ export function HoldChart({ d, units, height = 260 }: { d: ExerciseDetail; units
     return { x: s.date, y: hold, label }
   })
   const series: LineSeries[] = [
-    { id: 'session', label: 'Longest hold', color: 'var(--text-faint)', points: sessionPoints, showPoints: true },
+    { id: 'session', label: 'Longest hold', color: 'var(--text)', points: sessionPoints, showPoints: true },
   ]
   const raw = (pts: { date: Date; value: number }[]): LinePoint[] => pts.map((p) => ({ x: p.date, y: p.value }))
   if (d.trend.length > 1) series.push({ id: 'trend', label: 'Trend (21-day)', color: 'var(--accent)', points: raw(d.trend) })

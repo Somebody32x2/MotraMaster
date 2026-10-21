@@ -2,7 +2,6 @@ import type { ComponentType } from 'preact'
 import { useEffect } from 'preact/hooks'
 import { displayLabel } from './core/labels'
 import { isRegionId, regionName } from './core/regions'
-import type { DetailLevel, ThemePref } from './core/types'
 import CalendarPage from './pages/CalendarPage'
 import ExerciseDetailPage from './pages/ExerciseDetailPage'
 import ExercisesPage from './pages/ExercisesPage'
@@ -14,20 +13,16 @@ import SettingsPage from './pages/SettingsPage'
 import WorkoutDetailPage from './pages/WorkoutDetailPage'
 import WorkoutsPage from './pages/WorkoutsPage'
 import { href, navigate, paths, route, type RouteName } from './router'
-import { boot, dataset, loading, range, RANGE_OPTIONS, settings, updateSettings } from './state'
-import { Segmented, type SegmentedOption } from './ui/components/Segmented'
+import { boot, dataset, loading } from './state'
+import { isDataRoute } from './ui/components/PageControls'
 import { Skeleton } from './ui/components/Skeleton'
-import { formatRelative, plural } from './ui/format'
 import {
   IconCalendar,
   IconExercises,
   IconImport,
-  IconMoon,
   IconMuscles,
   IconOverview,
   IconSettings,
-  IconSun,
-  IconSystem,
   IconWorkouts,
   type IconProps,
 } from './ui/icons'
@@ -48,98 +43,81 @@ const NAV_MAIN: NavItem[] = [
   { path: paths.calendar(), label: 'Calendar', icon: IconCalendar, match: ['calendar'] },
 ]
 
-const NAV_IMPORT: NavItem = { path: paths.import(), label: 'Import', icon: IconImport, match: ['import'] }
-const NAV_SETTINGS: NavItem = { path: paths.settings(), label: 'Settings', icon: IconSettings, match: ['settings'] }
+const isCurrent = (item: NavItem) => item.match.includes(route.value.name)
 
-/** Pages that need a dataset; without one the onboarding/import view is shown instead. */
-const DATA_ROUTES: RouteName[] = ['overview', 'muscles', 'muscle', 'exercises', 'exercise', 'workouts', 'workout', 'calendar']
-
-const DETAIL_OPTIONS: SegmentedOption<DetailLevel>[] = [
-  { value: 'normal', label: 'Normal', title: 'Essential statistics' },
-  { value: 'detailed', label: 'Detailed', title: 'Every statistic and breakdown' },
-]
-
-const THEME_OPTIONS: SegmentedOption<ThemePref>[] = [
-  { value: 'system', label: <IconSystem size={16} />, title: 'Match system theme' },
-  { value: 'light', label: <IconSun size={16} />, title: 'Light theme' },
-  { value: 'dark', label: <IconMoon size={16} />, title: 'Dark theme' },
-]
-
-function NavLink({ item, variant }: { item: NavItem; variant: 'nav' | 'tab' }) {
-  const current = item.match.includes(route.value.name)
-  const Icon = item.icon
+function TopNav() {
+  const name = route.value.name
   return (
-    <a
-      class={variant === 'nav' ? 'nav__item' : 'tabbar__item'}
-      href={href(item.path)}
-      aria-current={current ? 'page' : undefined}
-    >
-      <Icon />
-      <span>{item.label}</span>
-    </a>
-  )
-}
-
-function Brand() {
-  return (
-    <a class="brand" href={href(paths.overview())} aria-label="MotraMaster home">
-      <img class="brand__mark" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={24} height={24} />
-      <span>
-        Motra<span class="brand__sub">Master</span>
-      </span>
-    </a>
-  )
-}
-
-function Sidebar() {
-  const ds = dataset.value
-  return (
-    <aside class="sidebar">
-      <Brand />
-      <nav class="nav" aria-label="Main">
-        {NAV_MAIN.map((item) => (
-          <NavLink key={item.path} item={item} variant="nav" />
-        ))}
-      </nav>
-      <div class="sidebar__foot">
-        <nav class="nav" aria-label="Data and preferences">
-          <NavLink item={NAV_IMPORT} variant="nav" />
-          <NavLink item={NAV_SETTINGS} variant="nav" />
+    <header class="topnav">
+      <div class="topnav__inner">
+        <a class="wordmark" href={href(paths.overview())} aria-label="MotraMaster home">
+          Motra<span class="wordmark__sub">Master</span>
+        </a>
+        <nav class="topnav__links" aria-label="Main">
+          {NAV_MAIN.map((item) => (
+            <a
+              key={item.path}
+              class="topnav__link"
+              href={href(item.path)}
+              aria-current={isCurrent(item) ? 'page' : undefined}
+            >
+              {item.label}
+            </a>
+          ))}
         </nav>
-        {ds && (
-          <p class="sidebar__meta">
-            <strong>{plural(ds.workouts.length, 'workout')}</strong>
-            <br />
-            Imported {formatRelative(new Date(ds.importedAt))}
-          </p>
-        )}
+        <div class="topnav__actions">
+          <a
+            class="icon-btn"
+            href={href(paths.import())}
+            aria-label="Import"
+            title="Import"
+            aria-current={name === 'import' ? 'page' : undefined}
+          >
+            <IconImport />
+          </a>
+          <a
+            class="icon-btn"
+            href={href(paths.settings())}
+            aria-label="Settings"
+            title="Settings"
+            aria-current={name === 'settings' ? 'page' : undefined}
+          >
+            <IconSettings />
+          </a>
+        </div>
       </div>
-    </aside>
+    </header>
   )
 }
 
-/** Mobile: the five data sections; Import and Settings live in the top bar's action icons. */
+/** Mobile: the five data sections; Import and Settings stay in the top bar. */
 function TabBar() {
   return (
     <nav class="tabbar" aria-label="Main">
-      {NAV_MAIN.map((item) => (
-        <NavLink key={item.path} item={item} variant="tab" />
-      ))}
+      {NAV_MAIN.map((item) => {
+        const Icon = item.icon
+        return (
+          <a key={item.path} class="tabbar__item" href={href(item.path)} aria-current={isCurrent(item) ? 'page' : undefined}>
+            <Icon />
+            <span>{item.label}</span>
+          </a>
+        )
+      })}
     </nav>
   )
 }
 
-const SECTION: Record<RouteName, { label: string; path: string }> = {
-  overview: { label: 'Overview', path: paths.overview() },
-  muscles: { label: 'Muscles', path: paths.muscles() },
-  muscle: { label: 'Muscles', path: paths.muscles() },
-  exercises: { label: 'Exercises', path: paths.exercises() },
-  exercise: { label: 'Exercises', path: paths.exercises() },
-  workouts: { label: 'Workouts', path: paths.workouts() },
-  workout: { label: 'Workouts', path: paths.workouts() },
-  calendar: { label: 'Calendar', path: paths.calendar() },
-  import: { label: 'Import', path: paths.import() },
-  settings: { label: 'Settings', path: paths.settings() },
+const SECTION_LABEL: Record<RouteName, string> = {
+  overview: 'Overview',
+  muscles: 'Muscles',
+  muscle: 'Muscles',
+  exercises: 'Exercises',
+  exercise: 'Exercises',
+  workouts: 'Workouts',
+  workout: 'Workouts',
+  calendar: 'Calendar',
+  import: 'Import',
+  settings: 'Settings',
 }
 
 /** Name of the entity shown by a detail route, or null for section pages. */
@@ -150,83 +128,6 @@ function detailTitle(): string | null {
   if (name === 'exercise') return ds?.exercises[params.key]?.name ?? displayLabel(params.key)
   if (name === 'workout') return ds?.workouts.find((w) => w.id === params.id)?.title ?? 'Workout'
   return null
-}
-
-function TopBar({ showDataControls }: { showDataControls: boolean }) {
-  const section = SECTION[route.value.name]
-  const detail = detailTitle()
-  const s = settings.value
-  return (
-    <header class="topbar">
-      <img
-        class="topbar__mobile-brand"
-        src={`${import.meta.env.BASE_URL}favicon.svg`}
-        alt=""
-        width={22}
-        height={22}
-      />
-      <div class="topbar__title">
-        {detail ? (
-          <>
-            <a href={href(section.path)}>{section.label}</a>
-            <span class="topbar__sep" aria-hidden="true">
-              /
-            </span>
-            <span class="topbar__current" aria-current="page">
-              {detail}
-            </span>
-          </>
-        ) : (
-          <span class="topbar__current">{section.label}</span>
-        )}
-      </div>
-      <div class="topbar__actions">
-        <a class="icon-btn" href={href(paths.import())} aria-label="Import" title="Import">
-          <IconImport />
-        </a>
-        <a
-          class="icon-btn"
-          href={href(paths.settings())}
-          aria-label="Settings"
-          title="Settings"
-          aria-current={route.value.name === 'settings' ? 'page' : undefined}
-        >
-          <IconSettings />
-        </a>
-      </div>
-      <div class="topbar__controls">
-        {showDataControls && (
-          <>
-            <Segmented
-              label="Time range"
-              class="topbar__range"
-              options={RANGE_OPTIONS}
-              value={range.value}
-              onChange={(v) => {
-                range.value = v
-              }}
-            />
-            <Segmented
-              label="Detail level"
-              class="topbar__detail"
-              options={DETAIL_OPTIONS}
-              value={s.detail}
-              onChange={(detail) => updateSettings({ detail })}
-            />
-          </>
-        )}
-        {/* Narrow screens drop the theme control here; it stays reachable in Settings. */}
-        <Segmented
-          label="Theme"
-          class="topbar__theme"
-          icons
-          options={THEME_OPTIONS}
-          value={s.theme}
-          onChange={(theme) => updateSettings({ theme })}
-        />
-      </div>
-    </header>
-  )
 }
 
 function Page({ onboarding }: { onboarding: boolean }) {
@@ -258,15 +159,15 @@ function Page({ onboarding }: { onboarding: boolean }) {
 
 function BootSkeleton() {
   return (
-    <div class="stack" aria-busy="true" aria-label="Loading your data">
+    <div class="stack" style={{ '--gap': 'var(--s3)' }} aria-busy="true" aria-label="Loading your data">
       <Skeleton width={220} height={28} />
       <Skeleton width={360} height={14} />
-      <div class="grid-4" style={{ marginTop: 16 }}>
+      <div class="boot-strip">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} height={104} radius={14} />
+          <Skeleton key={i} width={120} height={56} />
         ))}
       </div>
-      <Skeleton height={280} radius={14} />
+      <Skeleton height={280} radius={10} />
     </div>
   )
 }
@@ -275,12 +176,11 @@ export function App() {
   const r = route.value
   const ds = dataset.value
   const isLoading = loading.value
-  const dataRoute = DATA_ROUTES.includes(r.name)
-  const onboarding = !isLoading && !ds && dataRoute
+  const onboarding = !isLoading && !ds && isDataRoute(r.name)
 
   useEffect(() => {
     void boot().then(() => {
-      if (!dataset.value && DATA_ROUTES.includes(route.value.name)) navigate(paths.import(), { replace: true })
+      if (!dataset.value && isDataRoute(route.value.name)) navigate(paths.import(), { replace: true })
     })
   }, [])
 
@@ -289,22 +189,19 @@ export function App() {
   }, [r.path])
 
   const detail = detailTitle()
-  const title = onboarding ? 'Import' : (detail ?? SECTION[r.name].label)
+  const title = onboarding ? 'Import' : (detail ?? SECTION_LABEL[r.name])
   useEffect(() => {
     document.title = `${title} · MotraMaster`
   }, [title])
 
-  const narrow = onboarding || r.name === 'import' || r.name === 'settings'
+  const narrow = onboarding || r.name === 'import'
 
   return (
     <div class="shell">
-      <Sidebar />
-      <div class="main">
-        <TopBar showDataControls={dataRoute && ds != null} />
-        <main class={narrow ? 'content content--narrow' : 'content'} key={r.path} id="main">
-          {isLoading ? <BootSkeleton /> : <Page onboarding={onboarding} />}
-        </main>
-      </div>
+      <TopNav />
+      <main class={narrow ? 'content content--narrow' : 'content'} key={r.path} id="main">
+        {isLoading ? <BootSkeleton /> : <Page onboarding={onboarding} />}
+      </main>
       <TabBar />
     </div>
   )

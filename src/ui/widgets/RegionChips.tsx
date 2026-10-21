@@ -3,7 +3,7 @@ import { regionName } from '../../core/regions'
 import { href, paths } from '../../router'
 
 export function RegionChips({ regions, max }: { regions: RegionId[]; max?: number }) {
-  if (regions.length === 0) return <span class="faint">—</span>
+  if (regions.length === 0) return <span class="faint">–</span>
   const shown = max != null && regions.length > max ? regions.slice(0, max) : regions
   const hidden = regions.length - shown.length
   return (

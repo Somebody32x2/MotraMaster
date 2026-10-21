@@ -8,7 +8,6 @@ import type { StrengthMetric, Units } from '../core/types'
 import { paths } from '../router'
 import { detailed, settings } from '../state'
 import { Sparkline } from '../ui/charts'
-import { Card } from '../ui/components/Card'
 import { DataTable, type Column } from '../ui/components/DataTable'
 import { EmptyState } from '../ui/components/EmptyState'
 import { PageHeader } from '../ui/components/PageHeader'
@@ -61,7 +60,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean,
               <span class="cell-2__sub">longest hold</span>
             </span>
           ) : (
-            '—'
+            <span class="faint">–</span>
           )
         }
         if (e.valueUnit === 'reps') {
@@ -72,7 +71,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean,
               <span class="cell-2__sub">best set</span>
             </span>
           ) : (
-            '—'
+            <span class="faint">–</span>
           )
         }
         const s = e.bestStrength
@@ -106,11 +105,11 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean,
               <span class="cell-2__sub">total reps</span>
             </span>
           ) : (
-            '—'
+            <span class="faint">–</span>
           )
         }
         const s = e.latestStrength
-        if (!s) return '—'
+        if (!s) return <span class="faint">–</span>
         const ctx = strengthContext(s, metric, units)
         return (
           <span class="cell-2">
@@ -166,7 +165,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean,
         kind: 'number',
         priority: 3,
         value: (e) => (e.volumeLb > 0 ? e.volumeLb : null),
-        render: (e) => (e.volumeLb > 0 ? formatWeight(e.volumeLb, units, { compact: true }) : '—'),
+        render: (e) => (e.volumeLb > 0 ? formatWeight(e.volumeLb, units, { compact: true }) : <span class="faint">–</span>),
       },
       {
         id: 'catalog',
@@ -183,7 +182,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean,
             </span>
           ) : (
             <span class="faint" title="Custom or renamed exercise: muscles come from the export only">
-              —
+              –
             </span>
           ),
       },
@@ -254,26 +253,41 @@ export default function ExercisesPage() {
     status.dip > 0 && `${status.dip} dipping`,
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(', ')
 
   return (
     <>
-      <PageHeader
-        title="Exercises"
-        subtitle="Everything you logged in the selected range, with estimated 1RM and trend. Bodyweight work shows reps instead."
-      />
+      <PageHeader title="Exercises" subtitle={summary} />
       {all.length === 0 ? (
         <EmptyState icon={<IconExercises size={20} />} title="No exercises in this range">
-          Choose a longer range in the top bar to include older workouts.
+          Choose a longer range above to include older workouts.
         </EmptyState>
       ) : (
-        <Card
-          flush
-          title="All exercises"
-          subtitle={summary}
-          info="Estimated 1RMs assume sets close to failure, so without effort data they are a lower bound. Trends need 4+ sessions over 21+ days."
-        >
+        <section class="ex-list" aria-label="All exercises">
           <div class="ex-toolbar">
+            {regionCounts.length > 1 && (
+              <div class="ex-filter" role="group" aria-label="Filter by muscle">
+                <button
+                  type="button"
+                  class="ex-filter__tab"
+                  aria-pressed={activeRegion === 'all'}
+                  onClick={() => setRegion('all')}
+                >
+                  All <span class="ex-filter__n">{all.length}</span>
+                </button>
+                {regionCounts.map(([r, n]) => (
+                  <button
+                    key={r}
+                    type="button"
+                    class="ex-filter__tab"
+                    aria-pressed={activeRegion === r}
+                    onClick={() => setRegion(activeRegion === r ? 'all' : r)}
+                  >
+                    {regionName(r)} <span class="ex-filter__n">{n}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <label class="ex-search">
               <span class="sr-only">Search exercises</span>
               <input
@@ -284,29 +298,6 @@ export default function ExercisesPage() {
                 onInput={(e) => setQuery(e.currentTarget.value)}
               />
             </label>
-            {regionCounts.length > 1 && (
-              <div class="filter-chips" role="group" aria-label="Filter by muscle">
-                <button
-                  type="button"
-                  class="filter-chip"
-                  aria-pressed={activeRegion === 'all'}
-                  onClick={() => setRegion('all')}
-                >
-                  All <span class="filter-chip__n">{all.length}</span>
-                </button>
-                {regionCounts.map(([r, n]) => (
-                  <button
-                    key={r}
-                    type="button"
-                    class="filter-chip"
-                    aria-pressed={activeRegion === r}
-                    onClick={() => setRegion(activeRegion === r ? 'all' : r)}
-                  >
-                    {regionName(r)} <span class="filter-chip__n">{n}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
           <DataTable
             columns={cols}
@@ -317,7 +308,7 @@ export default function ExercisesPage() {
             empty={query ? `No exercises match “${query}”.` : 'No exercises for this muscle in range.'}
             caption="Exercises"
           />
-        </Card>
+        </section>
       )}
     </>
   )

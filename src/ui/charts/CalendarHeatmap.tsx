@@ -266,7 +266,7 @@ export function CalendarHeatmap(props: CalendarHeatmapProps) {
                 y={yOf(c.row)}
                 width={cell}
                 height={cell}
-                rx={Math.min(3, cell / 4)}
+                rx={Math.min(2, cell / 4)}
               />
             ))}
           </g>

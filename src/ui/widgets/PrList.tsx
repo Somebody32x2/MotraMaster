@@ -36,11 +36,11 @@ function setText(pr: PrEvent, units: Units): string | null {
   return `${formatWeight(pr.weightLb, units)} × ${formatNumber(pr.reps, { maxDecimals: 0 })}`
 }
 
-function valueText(type: PrType, v: number, units: Units): string {
+/** Full-precision value (grouped thousands, never K/M compaction) so previous and new bests stay distinguishable. */
+function valueText(type: PrType, v: number, units: Units, maxDecimals?: number): string {
   if (type === 'reps') return `${formatNumber(v, { maxDecimals: 0 })} reps`
   if (type === 'hold') return formatHold(v)
-  if (type === 'setVolume' || type === 'sessionVolume') return formatWeight(v, units, { compact: true })
-  return formatWeight(v, units)
+  return formatWeight(v, units, maxDecimals != null ? { maxDecimals } : {})
 }
 
 /** Main value plus the set that produced it, phrased per PR type. */
@@ -76,8 +76,15 @@ export function PrList({ prs, units, limit, showExercise = true, empty = 'No per
   return (
     <ul class="pr-list">
       {rows.map((pr, i) => {
-        const { value, detail } = describe(pr, units)
-        const prev = pr.previous != null && Number.isFinite(pr.previous) ? valueText(pr.type, pr.previous, units) : null
+        const described = describe(pr, units)
+        const { detail } = described
+        let value = described.value
+        let prev = pr.previous != null && Number.isFinite(pr.previous) ? valueText(pr.type, pr.previous, units) : null
+        // Weights that round to the same label get one decimal so the change stays visible.
+        if (prev != null && prev === value && pr.previous != null && pr.type !== 'reps' && pr.type !== 'hold') {
+          value = valueText(pr.type, pr.value, units, 1)
+          prev = valueText(pr.type, pr.previous, units, 1)
+        }
         return (
           <li key={`${pr.workoutId}:${pr.exerciseKey}:${pr.type}:${i}`} class="pr-list__row">
             <a class="pr-list__date" href={href(paths.workout(pr.workoutId))} title="Open workout">
@@ -94,16 +101,15 @@ export function PrList({ prs, units, limit, showExercise = true, empty = 'No per
             <div class="pr-list__value">
               <span class="pr-list__now">
                 {prev && (
-                  <span class="pr-list__prev">
-                    <span class="sr-only">previous best </span>
-                    {prev}
-                    <span aria-hidden="true"> → </span>
+                  <>
+                    <span class="sr-only">Previous best </span>
+                    <s class="pr-list__prev">{prev}</s>
                     <span class="sr-only">, now </span>
-                  </span>
+                  </>
                 )}
-                {value}
+                <span class="num">{value}</span>
               </span>
-              {detail && <span class="pr-list__detail">{detail}</span>}
+              {detail && <span class="pr-list__detail num">{detail}</span>}
             </div>
           </li>
         )

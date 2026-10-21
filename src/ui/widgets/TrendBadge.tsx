@@ -8,6 +8,13 @@ const LABEL: Record<TrendStatus, string> = {
   insufficient: 'Not enough data',
 }
 
+const GLYPH: Record<TrendStatus, string | null> = {
+  progressing: '▲',
+  plateau: '–',
+  dip: '▼',
+  insufficient: null,
+}
+
 const EXPLAIN: Record<TrendStatus, string> = {
   progressing: 'Estimated 1RM rising faster than 1% per month over the last 90 days.',
   plateau: 'No e1RM PR in the last 5+ sessions and 28+ days, with less than 1% change per month.',
@@ -17,18 +24,31 @@ const EXPLAIN: Record<TrendStatus, string> = {
 
 /** Rate of gain as '+2.1%/mo' (rate is in percent units). */
 export function formatRate(ratePerMonth: number | null): string {
-  if (ratePerMonth == null || !Number.isFinite(ratePerMonth)) return '—'
+  if (ratePerMonth == null || !Number.isFinite(ratePerMonth)) return '–'
   return `${formatNumber(ratePerMonth, { sign: true, maxDecimals: 1 })}%/mo`
 }
 
+/** Trend status as plain text with a glyph: '▲ +2.1%/mo', '▼ −1.4%/mo', '– Plateau', 'Not enough data'. */
 export function TrendBadge({ status, ratePerMonth }: { status: TrendStatus; ratePerMonth: number | null }) {
-  const hasRate = status !== 'insufficient' && ratePerMonth != null && Number.isFinite(ratePerMonth)
-  const rate = hasRate ? formatRate(ratePerMonth) : null
+  const hasRate = ratePerMonth != null && Number.isFinite(ratePerMonth)
+  const moving = status === 'progressing' || status === 'dip'
+  const glyph = GLYPH[status]
+  const title = hasRate && status !== 'insufficient' ? `${EXPLAIN[status]} Currently ${formatRate(ratePerMonth)}.` : EXPLAIN[status]
   return (
-    <span class={`trend-badge trend-badge--${status}`} title={EXPLAIN[status]}>
-      <span class="trend-badge__dot" aria-hidden="true" />
-      <span>{LABEL[status]}</span>
-      {rate && <span class="trend-badge__rate">{rate}</span>}
+    <span class={`trend-badge trend-badge--${status}`} title={title}>
+      {glyph && (
+        <span class="trend-badge__glyph" aria-hidden="true">
+          {glyph}
+        </span>
+      )}
+      {moving && hasRate ? (
+        <>
+          <span class="sr-only">{LABEL[status]}, </span>
+          <span class="trend-badge__rate">{formatRate(ratePerMonth)}</span>
+        </>
+      ) : (
+        <span>{LABEL[status]}</span>
+      )}
     </span>
   )
 }

@@ -26,19 +26,16 @@ export interface BodyMapProps {
   secondary?: Partial<Record<RegionId, number>>
 }
 
-/** Neutral muscle tone: the "untrained" fill. */
-const MUSCLE_BASE = 'color-mix(in oklab, var(--text) 8%, var(--surface-2))'
+/** Neutral muscle tone: the "untrained" fill (defined per theme in bodymap.css). */
+const MUSCLE_BASE = 'var(--bm-muscle, var(--ramp-0))'
 
-function accentMix(pct: number): string {
-  return `color-mix(in oklab, var(--accent) ${pct}%, ${MUSCLE_BASE})`
-}
-
+/** Weekly-set bands as accent ramp steps; >20 stays accent and gains an ink outline. */
 const BAND_COLORS: Record<VolumeBand, string> = {
   none: MUSCLE_BASE,
-  low: accentMix(25),
-  moderate: accentMix(50),
-  target: 'var(--accent)',
-  high: 'var(--warn)',
+  low: 'var(--ramp-2)',
+  moderate: 'var(--ramp-3)',
+  target: 'var(--ramp-5)',
+  high: 'var(--ramp-5)',
 }
 
 /** Weekly hard-set band per research §2.1: 0 | <5 | 5–9 | 10–20 | >20. */
@@ -56,11 +53,11 @@ export function bandColor(band: VolumeBand): string {
 }
 
 const BAND_LEGEND: { band: VolumeBand; label: string }[] = [
-  { band: 'none', label: '0' },
-  { band: 'low', label: '1–4' },
-  { band: 'moderate', label: '5–9' },
-  { band: 'target', label: '10–20 target' },
-  { band: 'high', label: '20+' },
+  { band: 'none', label: 'None' },
+  { band: 'low', label: 'Under 5' },
+  { band: 'moderate', label: '5 to 9' },
+  { band: 'target', label: '10 to 20, target' },
+  { band: 'high', label: 'Over 20' },
 ]
 
 const BAND_NOTE: Record<VolumeBand, string> = {
@@ -72,7 +69,7 @@ const BAND_NOTE: Record<VolumeBand, string> = {
 }
 
 /** Stepped fills for the relative scale: level 0 (none) to 4 (max). */
-const RELATIVE_COLORS = [MUSCLE_BASE, accentMix(25), accentMix(50), accentMix(75), 'var(--accent)']
+const RELATIVE_COLORS = [MUSCLE_BASE, 'var(--ramp-2)', 'var(--ramp-3)', 'var(--ramp-4)', 'var(--ramp-5)']
 
 const DELT_HEADS: DeltHead[] = ['front', 'side', 'rear']
 const DELT_NAMES: Record<DeltHead, string> = { front: 'Front delts', side: 'Side delts', rear: 'Rear delts' }
@@ -197,6 +194,7 @@ export function BodyMap({
       const focusable = first && interactive
       let cls = 'bm-muscle'
       if (hatched) cls += ' is-hatched'
+      else if (scale === 'weeklySets' && bandForSets(v) === 'high') cls += ' is-high'
       if (hover?.region === r) cls += ' is-hover'
       if (selected === r) cls += ' is-selected'
       return (
@@ -313,7 +311,7 @@ export function BodyMap({
               const s = second(r)
               const content = (
                 <>
-                  {s > 0 ? hatchSwatch : <span class="bm-swatch" style={`background:${colorFor(primary(r))}`} />}
+                  {s > 0 ? hatchSwatch : <span class={`bm-swatch${scale === 'weeklySets' && bandForSets(primary(r)) === 'high' ? ' bm-swatch--high' : ''}`} style={`background:${colorFor(primary(r))}`} />}
                   <span class="bm-chip-name">{regionName(r)}</span>
                   <span class="bm-chip-value">{valueText(s > 0 ? s : primary(r))}</span>
                 </>
@@ -341,7 +339,7 @@ export function BodyMap({
               <span class="bm-legend-title">Sets/wk</span>
               {BAND_LEGEND.map((b) => (
                 <span key={b.band} class="bm-legend-item">
-                  <span class="bm-swatch" style={`background:${bandColor(b.band)}`} />
+                  <span class={`bm-swatch${b.band === 'high' ? ' bm-swatch--high' : ''}`} style={`background:${bandColor(b.band)}`} />
                   {b.label}
                 </span>
               ))}

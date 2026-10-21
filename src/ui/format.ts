@@ -1,7 +1,7 @@
 import type { Units } from '../core/types'
 
-/** Placeholder for missing values in every formatter. */
-export const EMPTY = '—'
+/** Placeholder for missing values in every formatter: an en dash. */
+export const EMPTY = '–'
 /** True minus sign (U+2212) for signed numbers; aligns with '+' in tabular figures. */
 export const MINUS = '−'
 
@@ -160,7 +160,7 @@ function toDate(value: string | Date): Date {
   return value instanceof Date ? value : parseLocalIso(value)
 }
 
-/** Formats a LocalIso (or Date). Unparseable/null input yields '—'. */
+/** Formats a LocalIso (or Date). Unparseable/null input yields EMPTY. */
 export function formatDate(iso: string | Date | null | undefined, style: DateStyle = 'medium'): string {
   if (iso == null || iso === '') return EMPTY
   const d = toDate(iso)
@@ -175,7 +175,7 @@ export function formatDate(iso: string | Date | null | undefined, style: DateSty
 
 let rtf: Intl.RelativeTimeFormat | undefined
 
-/** 'today', 'yesterday', '3 days ago', '2 weeks ago', '5 months ago' — by calendar day. */
+/** 'today', 'yesterday', '3 days ago', '2 weeks ago', '5 months ago', by calendar day. */
 export function formatRelative(iso: string | Date | null | undefined, now: Date = new Date()): string {
   if (iso == null || iso === '') return EMPTY
   const d = toDate(iso)

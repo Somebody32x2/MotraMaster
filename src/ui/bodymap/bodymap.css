@@ -1,8 +1,9 @@
 /* Body map: theme tokens only. Muscle fills arrive per path as --bm-fill. */
 
 .bm {
-  --bm-muscle: color-mix(in oklab, var(--text) 8%, var(--surface-2));
-  --bm-hatch: color-mix(in oklab, var(--accent) 55%, var(--bm-muscle));
+  --bm-silhouette: var(--surface-2);
+  --bm-muscle: color-mix(in oklab, var(--text) 9%, var(--surface-2));
+  --bm-hatch: color-mix(in oklab, var(--accent) 45%, var(--bm-muscle));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -57,17 +58,15 @@
 }
 
 .bm-caption {
-  font-size: var(--fs-xs);
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 /* Figure */
 .bm-silhouette {
-  fill: var(--bm-silhouette, var(--surface-2));
-  stroke: var(--border);
+  fill: var(--bm-silhouette);
+  stroke: none;
   stroke-width: 1;
   stroke-linejoin: round;
 }
@@ -82,7 +81,7 @@
 /* The surface-2 stroke carves a consistent gap between neighbouring muscles. */
 .bm-muscle {
   fill: var(--bm-fill, var(--bm-muscle));
-  stroke: var(--bm-silhouette, var(--surface-2));
+  stroke: var(--bm-silhouette);
   stroke-width: 1;
   stroke-linejoin: round;
   outline: none;
@@ -101,6 +100,11 @@
 
 .bm-muscle.is-hover {
   stroke: color-mix(in oklab, var(--text) 35%, var(--surface-2));
+}
+
+.bm-muscle.is-high {
+  stroke: var(--text);
+  stroke-width: 1;
 }
 
 .bm-muscle.is-selected {
@@ -137,9 +141,9 @@
   gap: 6px;
   height: 24px;
   padding: 0 8px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--text-muted);
   font: inherit;
   font-size: var(--fs-sm);
@@ -175,7 +179,9 @@ button.bm-chip:focus-visible {
 }
 
 .bm-chip-value {
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
 /* Legend */
@@ -185,12 +191,12 @@ button.bm-chip:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 4px 14px;
-  font-size: var(--fs-xs);
+  font-size: 12px;
   color: var(--text-muted);
 }
 
 .bm-legend-title {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -218,8 +224,12 @@ button.bm-chip:focus-visible {
   flex: none;
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--text) 6%, transparent);
+}
+
+.bm-swatch--high {
+  box-shadow: inset 0 0 0 1px var(--text);
 }
 
 .bm-swatch--hatch {
@@ -237,15 +247,13 @@ button.bm-chip:focus-visible {
   }
 }
 
-/* Dark theme: lift the figure off the surface so it stays legible. */
+/* Dark theme: muscles a step lighter than the silhouette. */
 [data-theme='dark'] .bm {
-  --bm-silhouette: color-mix(in oklab, var(--text) 10%, var(--surface));
-  --bm-muscle: color-mix(in oklab, var(--text) 18%, var(--surface));
+  --bm-muscle: color-mix(in oklab, var(--text) 12%, var(--surface-2));
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .bm {
-    --bm-silhouette: color-mix(in oklab, var(--text) 10%, var(--surface));
-    --bm-muscle: color-mix(in oklab, var(--text) 18%, var(--surface));
+    --bm-muscle: color-mix(in oklab, var(--text) 12%, var(--surface-2));
   }
 }

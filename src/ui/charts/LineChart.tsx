@@ -462,6 +462,7 @@ export function LineChart(props: LineChartProps) {
             {yTicks.map((t) => (
               <line key={t} x1={plotL} x2={plotR} y1={crisp(ys(t))} y2={crisp(ys(t))} />
             ))}
+            <line class="mm-baseline" x1={plotL} x2={plotR} y1={crisp(plotB)} y2={crisp(plotB)} />
           </g>
           <g class="mm-axis mm-axis-y">
             {yTicks.map((t, i) => (
@@ -483,20 +484,10 @@ export function LineChart(props: LineChartProps) {
           </g>
 
           <g clip-path={`url(#${clipId})`}>
-            {bandPath && <path d={bandPath} fill={bandColor} fill-opacity={0.1} stroke="none" />}
+            {bandPath && <path d={bandPath} fill={bandColor} fill-opacity={0.08} stroke="none" />}
             {seriesPaths.map(({ s, area }) =>
-              area ? <path key={`a-${s.id}`} d={area} fill={s.color} fill-opacity={0.1} stroke="none" /> : null,
+              area ? <path key={`a-${s.id}`} d={area} fill={s.color} fill-opacity={0.08} stroke="none" /> : null,
             )}
-            {markersInView.map((mk, i) => (
-              <line
-                key={`m${i}`}
-                class="mm-marker-line"
-                x1={crisp(xs(mk.x))}
-                x2={crisp(xs(mk.x))}
-                y1={plotT}
-                y2={plotB}
-              />
-            ))}
             {seriesPaths.map(({ s, line }) =>
               line ? (
                 <path
@@ -510,21 +501,28 @@ export function LineChart(props: LineChartProps) {
             )}
             {seriesPaths.map(({ s, dots }) =>
               dots.map((d) => (
-                <circle key={`d-${s.id}-${d.p.index}`} class="mm-dot" cx={d.px} cy={d.py} r={2.75} stroke={s.color} />
+                <circle key={`d-${s.id}-${d.p.index}`} class="mm-dot" cx={d.px} cy={d.py} r={3} stroke={s.color} />
               )),
             )}
             {m.series.map((s) =>
               [...markerXs].map((x) => {
                 const p = s.byX.get(x);
                 if (!p || p.y === null) return null;
-                return <circle key={`r-${s.id}-${x}`} class="mm-marker-ring" cx={xs(x)} cy={ys(p.y)} r={4.5} />;
+                return <circle key={`r-${s.id}-${x}`} class="mm-marker-head" cx={xs(x)} cy={ys(p.y)} r={3} />;
               }),
             )}
           </g>
           {markersInView.map((mk, i) => (
-            <circle key={`mt${i}`} class="mm-marker-head" cx={xs(mk.x)} cy={plotT} r={3}>
+            <line
+              key={`mt${i}`}
+              class="mm-marker-tick"
+              x1={crisp(xs(mk.x))}
+              x2={crisp(xs(mk.x))}
+              y1={plotB - 6}
+              y2={plotB}
+            >
               <title>{mk.label}</title>
-            </circle>
+            </line>
           ))}
 
           {activeIdx !== null && activeX !== null && (
@@ -540,7 +538,7 @@ export function LineChart(props: LineChartProps) {
               {m.series.map((s) => {
                 const p = s.byX.get(activeX);
                 if (!p || p.y === null) return null;
-                return <circle key={s.id} class="mm-dot-active" cx={slotPx[activeIdx]} cy={ys(p.y)} r={4} fill={s.color} />;
+                return <circle key={s.id} class="mm-dot-active" cx={slotPx[activeIdx]} cy={ys(p.y)} r={3.5} fill={s.color} />;
               })}
             </g>
           )}
