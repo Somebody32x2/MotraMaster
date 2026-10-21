@@ -6,8 +6,8 @@
  * Parses the files locally with the app's own parser and reports only the
  * *shape* of the data — sheet names, labels, headers, units, exercise and
  * muscle names, effort values, warnings — never weights, reps, notes or
- * workout titles. Writes catalog-output.json and catalog-output.md to the
- * current directory so the format can be shared safely.
+ * workout titles. Writes catalog-output.md to the current directory so the
+ * format can be shared safely.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
@@ -27,9 +27,8 @@ missing from the bundled Motra library or whose muscles disagree with it,
 unrecognized labels/columns/units/effort values and parser warnings. A full
 vocabulary listing follows. No weights, reps, notes or workout titles.
 
-Outputs (in the current directory):
-  catalog-output.json   machine-readable report
-  catalog-output.md     the same report as Markdown — paste this back
+Output (in the current directory):
+  catalog-output.md     the report as Markdown — paste this back
 
 Options:
   -h, --help            show this message`;
@@ -212,16 +211,12 @@ function main(argv: string[]): number {
   };
 
   const report = {
-    generatedAt: new Date().toISOString(),
     files: files.length,
-    failures,
     workouts: dataset.workouts.length,
     sets: setCount,
     dateRange: starts.length > 0 ? { first: starts[0].slice(0, 10), last: starts[starts.length - 1].slice(0, 10) } : null,
     workoutsWithoutStart: dataset.workouts.length - starts.length,
     workoutsWithHeartRate: dataset.workouts.filter((w) => w.hrZonesSec !== null).length,
-    needsAttention,
-    vocabulary,
   };
 
   const na = needsAttention;
@@ -308,9 +303,7 @@ function main(argv: string[]): number {
   out.push('### Effort values (workouts)', '', table(['Value', 'Count'], v.workoutEffortValues.map((r) => [r.value, r.count])));
   out.push('### Parser warnings', '', table(['Message', 'Count'], v.warnings.map((r) => [r.value, r.count])));
 
-  const jsonPath = resolve('catalog-output.json');
   const mdPath = resolve('catalog-output.md');
-  writeFileSync(jsonPath, JSON.stringify(report, null, 2) + '\n');
   writeFileSync(mdPath, out.join('\n'));
 
   console.log(`Parsed ${files.length} file(s): ${report.workouts} workouts, ${report.sets} sets` +
@@ -320,7 +313,7 @@ function main(argv: string[]): number {
   console.log('\nNeeds attention:');
   for (const a of attention) console.log(`  ${String(a.count).padStart(4)}  ${a.title}`);
   if (flagged.length === 0) console.log('  Nothing surprising — every label matched known Motra vocabulary.');
-  console.log(`\nWrote ${jsonPath}\nWrote ${mdPath}`);
+  console.log(`\nWrote ${mdPath}`);
   console.log('\nReview catalog-output.md, then paste its contents back into the chat. It contains no weights, reps, notes or titles.');
   return failures.length > 0 && files.length === 0 ? 1 : 0;
 }

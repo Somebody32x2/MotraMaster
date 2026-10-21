@@ -64,7 +64,7 @@ npm install
 node scripts/catalog.ts path/to/Motra_Workouts_Export.xlsx
 ```
 
-This writes `catalog-output.md` and `catalog-output.json`. The report opens with
+This writes `catalog-output.md`. The report opens with
 a **Needs attention** section listing only the surprises: muscle labels outside
 Motra's 18 ids (and which region each was mapped to, and how), exercises missing
 from Motra's library, exercises whose muscle cell disagrees with the library,
