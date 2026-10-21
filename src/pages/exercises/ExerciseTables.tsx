@@ -137,7 +137,7 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
         id: 'volume',
         header: 'Volume',
         kind: 'number',
-        hideBelow: 'sm',
+        priority: 2,
         value: (r) => r.volumeLb,
         render: (r) => formatWeight(r.volumeLb, units, { compact: true }),
       },
@@ -154,7 +154,7 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
         id: 'top',
         header: 'Top set',
         kind: 'number',
-        hideBelow: 'md',
+        priority: 3,
         value: (r) => r.topWeightLb,
         render: (r) => formatWeight(r.topWeightLb, units),
       })
@@ -171,7 +171,7 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
     id: 'prs',
     header: 'PRs',
     sortable: false,
-    hideBelow: 'sm',
+    priority: 2,
     render: (r) =>
       r.prTypes.length ? (
         <span class="pr-chips">

@@ -15,14 +15,17 @@ import { buildDataset } from '../src/core/dataset.ts';
 import { displayLabel, normalizeKey, splitMuscles } from '../src/core/labels.ts';
 import { parseWorkbookDetailed } from '../src/core/parse.ts';
 import type { ParseVocabulary } from '../src/core/parse.ts';
+import { catalogLookup, explainMuscle, regionName, resolveMuscle } from '../src/core/regions.ts';
+import type { RegionId } from '../src/core/analytics/types.ts';
 import type { ParseWarning, Workout } from '../src/core/types.ts';
 
 const HELP = `Usage: node scripts/catalog.ts <export.xlsx> [more.xlsx ...]
 
-Builds a privacy-safe vocabulary report of Motra workout exports:
-sheet names, summary labels, set-table headers, units, exercise and muscle
-names, effort values, unrecognized columns and parser warnings.
-No weights, reps, notes or workout titles are included.
+Builds a privacy-safe vocabulary report of Motra workout exports. It leads
+with "Needs attention": muscle labels outside Motra's vocabulary, exercises
+missing from the bundled Motra library or whose muscles disagree with it,
+unrecognized labels/columns/units/effort values and parser warnings. A full
+vocabulary listing follows. No weights, reps, notes or workout titles.
 
 Outputs (in the current directory):
   catalog-output.json   machine-readable report
@@ -107,6 +110,7 @@ function main(argv: string[]): number {
   // Exercise set/workout counts.
   const exerciseSets: Counts = {};
   const exerciseWorkouts: Counts = {};
+  const exerciseCells: Record<string, Counts> = {};
   const muscleCells: Counts = {};
   const muscleLabels: Counts = {};
   const effortValues: Counts = {};
@@ -118,6 +122,7 @@ function main(argv: string[]): number {
     for (const s of w.sets) {
       setCount++;
       bump(exerciseSets, s.exerciseKey);
+      bump((exerciseCells[s.exerciseKey] ??= {}), s.muscleRaw);
       seen.add(s.exerciseKey);
       bump(muscleCells, s.muscleRaw);
       for (const part of splitMuscles(s.muscleRaw)) bump(muscleLabels, part);
@@ -130,15 +135,7 @@ function main(argv: string[]): number {
   const warningMessages: Counts = {};
   for (const w of warnings) bump(warningMessages, w.message);
 
-  const report = {
-    generatedAt: new Date().toISOString(),
-    files: files.length,
-    failures,
-    workouts: dataset.workouts.length,
-    sets: setCount,
-    dateRange: starts.length > 0 ? { first: starts[0].slice(0, 10), last: starts[starts.length - 1].slice(0, 10) } : null,
-    workoutsWithoutStart: dataset.workouts.length - starts.length,
-    workoutsWithHeartRate: dataset.workouts.filter((w) => w.hrZonesSec !== null).length,
+  const vocabulary = {
     sheets,
     summaryLabels: sortedCounts(summaryLabels),
     unknownSummaryLabels: sortedCounts(unknownSummaryLabels),
@@ -171,6 +168,108 @@ function main(argv: string[]): number {
     warnings: sortedCounts(warningMessages),
   };
 
+  // Needs attention: only the labels the app had to guess at or could not place.
+  const unknownMuscles = vocabulary.muscles.flatMap((m) => {
+    const { regions, via } = explainMuscle(m.raw);
+    if (via === 'motra') return [];
+    return [{ raw: m.raw, key: m.key, via, regions: (Object.keys(regions) as RegionId[]).map(regionName), sets: m.count }];
+  });
+
+  const notInLibrary: { display: string; muscleCells: string[]; sets: number }[] = [];
+  const mismatches: { display: string; exportMuscles: string[]; libraryPrimaries: string[]; sets: number }[] = [];
+  for (const e of vocabulary.exercises) {
+    const entry = catalogLookup(e.key) ?? e.rawNames.map(catalogLookup).find((c) => c !== null) ?? null;
+    if (entry === null) {
+      const cells = sortedCounts(exerciseCells[e.key] ?? {}).map((c) => c.value || '(empty)');
+      notInLibrary.push({ display: e.display, muscleCells: cells, sets: e.sets });
+      continue;
+    }
+    const primaries = (Object.keys(entry.m) as RegionId[]).filter((id) => (entry.m[id] ?? 0) >= 8);
+    const exported = new Set<RegionId>();
+    for (const k of e.muscles) for (const id of Object.keys(resolveMuscle(k)) as RegionId[]) exported.add(id);
+    exported.delete('other');
+    const agrees = exported.size === primaries.length && primaries.every((id) => exported.has(id));
+    if (!agrees) {
+      mismatches.push({ display: e.display, exportMuscles: e.muscles, libraryPrimaries: primaries.map(regionName), sets: e.sets });
+    }
+  }
+  const MISMATCH_CAP = 50;
+
+  const oddEffort = [
+    ...vocabulary.setEffortValues.map((r) => ({ value: r.value, where: 'sets', count: r.count })),
+    ...vocabulary.workoutEffortValues.map((r) => ({ value: r.value, where: 'workouts', count: r.count })),
+  ].filter((r) => !/^(?:|n\/?a|-?\d+(?:[.,]\d+)?)$/i.test(r.value.trim()));
+
+  const needsAttention = {
+    unknownMuscleLabels: unknownMuscles,
+    exercisesNotInLibrary: notInLibrary,
+    muscleMismatches: { total: mismatches.length, rows: mismatches.slice(0, MISMATCH_CAP) },
+    unknownSummaryLabels: vocabulary.unknownSummaryLabels,
+    unknownColumns: vocabulary.unknownColumns,
+    unexpectedUnits: vocabulary.units.filter((u) => !['lbs', 'ft', 'seconds'].includes(u.value.trim().toLowerCase())),
+    unexpectedEffortValues: oddEffort,
+    warnings: vocabulary.warnings,
+  };
+
+  const report = {
+    generatedAt: new Date().toISOString(),
+    files: files.length,
+    failures,
+    workouts: dataset.workouts.length,
+    sets: setCount,
+    dateRange: starts.length > 0 ? { first: starts[0].slice(0, 10), last: starts[starts.length - 1].slice(0, 10) } : null,
+    workoutsWithoutStart: dataset.workouts.length - starts.length,
+    workoutsWithHeartRate: dataset.workouts.filter((w) => w.hrZonesSec !== null).length,
+    needsAttention,
+    vocabulary,
+  };
+
+  const na = needsAttention;
+  const attention: { title: string; count: number; body: string }[] = [
+    {
+      title: "Muscle labels not in Motra's vocabulary",
+      count: na.unknownMuscleLabels.length,
+      body: table(['Raw', 'Key', 'Via', 'Regions', 'Sets'], na.unknownMuscleLabels.map((m) => [m.raw || '(empty)', m.key, m.via, m.regions.join(', '), m.sets])),
+    },
+    {
+      title: 'Exercises not found in the Motra library',
+      count: na.exercisesNotInLibrary.length,
+      body: table(['Exercise', 'Muscle cells seen', 'Sets'], na.exercisesNotInLibrary.map((e) => [e.display, e.muscleCells.join(' / '), e.sets])),
+    },
+    {
+      title: 'Export muscles disagree with library primaries',
+      count: na.muscleMismatches.total,
+      body: table(['Exercise', 'Export muscles', 'Library primaries', 'Sets'], na.muscleMismatches.rows.map((m) => [m.display, m.exportMuscles.join(', ') || '(none)', m.libraryPrimaries.join(', ') || '(none)', m.sets])) +
+        (na.muscleMismatches.total > MISMATCH_CAP ? `\n_Showing ${MISMATCH_CAP} of ${na.muscleMismatches.total}._\n` : ''),
+    },
+    {
+      title: 'Unrecognized summary labels',
+      count: na.unknownSummaryLabels.length,
+      body: table(['Label', 'Count'], na.unknownSummaryLabels.map((r) => [r.value, r.count])),
+    },
+    {
+      title: 'Unrecognized set columns',
+      count: na.unknownColumns.length,
+      body: table(['Header', 'Tables'], na.unknownColumns.map((r) => [r.value, r.count])),
+    },
+    {
+      title: 'Unexpected units',
+      count: na.unexpectedUnits.length,
+      body: table(['Unit', 'Count'], na.unexpectedUnits.map((r) => [r.value, r.count])),
+    },
+    {
+      title: 'Unexpected effort values',
+      count: na.unexpectedEffortValues.length,
+      body: table(['Value', 'Where', 'Count'], na.unexpectedEffortValues.map((r) => [r.value, r.where, r.count])),
+    },
+    {
+      title: 'Parser warnings',
+      count: na.warnings.length,
+      body: table(['Message', 'Count'], na.warnings.map((r) => [r.value, r.count])),
+    },
+  ];
+
+  const v = vocabulary;
   const out: string[] = [];
   out.push('# MotraMaster export catalog', '');
   out.push('Vocabulary only — no weights, reps, notes or workout titles.', '');
@@ -187,21 +286,27 @@ function main(argv: string[]): number {
   if (failures.length > 0) {
     out.push('## Unreadable files', '', table(['File', 'Error'], failures.map((f) => [f.file, f.error])));
   }
-  out.push('## Sheets', '', table(['File', 'Sheet', 'Rows', 'Workouts'], sheets.map((s) => [s.file, s.name, s.rows, s.workouts])));
-  out.push('## Summary labels', '', table(['Label', 'Count'], report.summaryLabels.map((r) => [r.value, r.count])));
-  out.push('## Unrecognized summary labels', '', table(['Label', 'Count'], report.unknownSummaryLabels.map((r) => [r.value, r.count])));
-  out.push('## Set-table headers', '', table(['Header', 'Tables'], report.setHeaders.map((r) => [r.value, r.count])));
-  out.push('## Unrecognized set columns', '', table(['Header', 'Tables'], report.unknownColumns.map((r) => [r.value, r.count])));
-  out.push('## Units seen', '', table(['Unit', 'Count'], report.units.map((r) => [r.value, r.count])));
-  out.push('## Muscle labels', '', table(['Raw', 'Key', 'Display', 'Sets'], report.muscles.map((m) => [m.raw, m.key, m.display, m.count])));
-  out.push('## Muscle cells', '', table(['Raw cell', 'Keys', 'Sets'], report.muscleCells.map((m) => [m.raw || '(empty)', m.keys.join(', '), m.count])));
-  out.push('## Exercises', '', table(
+  out.push('## Needs attention', '');
+  const flagged = attention.filter((a) => a.count > 0);
+  if (flagged.length === 0) out.push('Nothing surprising — every label matched known Motra vocabulary.', '');
+  for (const a of flagged) out.push(`### ${a.title} (${a.count})`, '', a.body);
+
+  out.push('## Full vocabulary', '');
+  out.push('### Sheets', '', table(['File', 'Sheet', 'Rows', 'Workouts'], v.sheets.map((s) => [s.file, s.name, s.rows, s.workouts])));
+  out.push('### Summary labels', '', table(['Label', 'Count'], v.summaryLabels.map((r) => [r.value, r.count])));
+  out.push('### Unrecognized summary labels', '', table(['Label', 'Count'], v.unknownSummaryLabels.map((r) => [r.value, r.count])));
+  out.push('### Set-table headers', '', table(['Header', 'Tables'], v.setHeaders.map((r) => [r.value, r.count])));
+  out.push('### Unrecognized set columns', '', table(['Header', 'Tables'], v.unknownColumns.map((r) => [r.value, r.count])));
+  out.push('### Units seen', '', table(['Unit', 'Count'], v.units.map((r) => [r.value, r.count])));
+  out.push('### Muscle labels', '', table(['Raw', 'Key', 'Display', 'Sets'], v.muscles.map((m) => [m.raw, m.key, m.display, m.count])));
+  out.push('### Muscle cells', '', table(['Raw cell', 'Keys', 'Sets'], v.muscleCells.map((m) => [m.raw || '(empty)', m.keys.join(', '), m.count])));
+  out.push('### Exercises', '', table(
     ['Key', 'Display', 'Raw spellings', 'Muscles', 'Sets', 'Workouts'],
-    report.exercises.map((e) => [e.key, e.display, e.rawNames.join(' / '), e.muscles.join(', '), e.sets, e.workouts]),
+    v.exercises.map((e) => [e.key, e.display, e.rawNames.join(' / '), e.muscles.join(', '), e.sets, e.workouts]),
   ));
-  out.push('## Effort values (sets)', '', table(['Value', 'Count'], report.setEffortValues.map((r) => [r.value, r.count])));
-  out.push('## Effort values (workouts)', '', table(['Value', 'Count'], report.workoutEffortValues.map((r) => [r.value, r.count])));
-  out.push('## Parser warnings', '', table(['Message', 'Count'], report.warnings.map((r) => [r.value, r.count])));
+  out.push('### Effort values (sets)', '', table(['Value', 'Count'], v.setEffortValues.map((r) => [r.value, r.count])));
+  out.push('### Effort values (workouts)', '', table(['Value', 'Count'], v.workoutEffortValues.map((r) => [r.value, r.count])));
+  out.push('### Parser warnings', '', table(['Message', 'Count'], v.warnings.map((r) => [r.value, r.count])));
 
   const jsonPath = resolve('catalog-output.json');
   const mdPath = resolve('catalog-output.md');
@@ -210,9 +315,11 @@ function main(argv: string[]): number {
 
   console.log(`Parsed ${files.length} file(s): ${report.workouts} workouts, ${report.sets} sets` +
     (report.dateRange ? `, ${report.dateRange.first} → ${report.dateRange.last}` : '') + '.');
-  console.log(`${report.exercises.length} exercises, ${report.muscles.length} muscle labels, ` +
-    `${report.unknownColumns.length} unrecognized columns, ${report.warnings.length} distinct warnings.`);
+  console.log(`${v.exercises.length} exercises, ${v.muscles.length} muscle labels.`);
   for (const f of failures) console.log(`Could not read ${f.file}: ${f.error}`);
+  console.log('\nNeeds attention:');
+  for (const a of attention) console.log(`  ${String(a.count).padStart(4)}  ${a.title}`);
+  if (flagged.length === 0) console.log('  Nothing surprising — every label matched known Motra vocabulary.');
   console.log(`\nWrote ${jsonPath}\nWrote ${mdPath}`);
   console.log('\nReview catalog-output.md, then paste its contents back into the chat. It contains no weights, reps, notes or titles.');
   return failures.length > 0 && files.length === 0 ? 1 : 0;

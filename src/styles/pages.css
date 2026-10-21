@@ -625,3 +625,33 @@
   padding: var(--s3) var(--s4);
   border-top: 1px solid var(--border);
 }
+
+/* Workout detail: muscles worked */
+.wo-muscle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: center;
+}
+
+.wo-muscle > * {
+  min-width: 0;
+}
+
+.wo-muscle__map .bm-view svg {
+  max-height: 320px;
+  width: auto;
+  max-width: 100%;
+}
+
+@media (min-width: 720px) {
+  .wo-muscle {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--s6, var(--s5));
+  }
+
+  .wo-muscle__map .bm-view svg {
+    max-height: none;
+    width: 100%;
+  }
+}

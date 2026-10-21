@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { useMemo, useState } from 'preact/hooks'
 import { compareLabels } from '../../core/labels'
-import { href as toHref } from '../../router'
+import { navigate, href as toHref } from '../../router'
 import { IconSortAsc, IconSortDesc } from '../icons'
 
 export type SortValue = number | string | null | undefined
@@ -25,8 +25,11 @@ export interface Column<T> {
   /** Header tooltip. */
   title?: string
   width?: string
-  /** Hide on narrow screens. */
-  hideBelow?: 'sm' | 'md'
+  /**
+   * Responsive visibility: 1 (default) always shown, 2 hidden below 640px, 3 hidden below 860px.
+   * Columns that remain still scroll horizontally inside the table wrapper.
+   */
+  priority?: 1 | 2 | 3
 }
 
 export interface DataTableProps<T> {
@@ -44,6 +47,8 @@ export interface DataTableProps<T> {
   dense?: boolean
   /** Show only the first N rows with a "Show all" button. */
   limit?: number
+  /** Pin the first column while the table scrolls sideways on narrow screens. Defaults to true. */
+  stickyFirst?: boolean
 }
 
 function compareValues(a: SortValue, b: SortValue, kind: Column<unknown>['kind']): number {
@@ -66,6 +71,7 @@ export function DataTable<T>({
   maxHeight,
   dense,
   limit,
+  stickyFirst = true,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<{ id: string; dir: SortDir } | null>(() => {
     if (!initialSort) return null
@@ -102,18 +108,19 @@ export function DataTable<T>({
 
   const alignOf = (c: Column<T>) => c.align ?? (c.kind === 'number' ? 'right' : 'left')
   const cellClass = (c: Column<T>) =>
-    [alignOf(c) === 'right' && 'is-right', alignOf(c) === 'center' && 'is-center', c.hideBelow && `hide-${c.hideBelow}`]
+    [alignOf(c) === 'right' && 'is-right', alignOf(c) === 'center' && 'is-center', c.priority && c.priority > 1 && `prio-${c.priority}`]
       .filter(Boolean)
       .join(' ') || undefined
 
   const scroll = maxHeight != null
   const style = scroll ? { maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight } : undefined
   const clickable = rowHref != null || onRowClick != null
+  const tableClass = ['dt', dense && 'dt--dense', stickyFirst && 'dt--sticky-first'].filter(Boolean).join(' ')
 
   return (
     <div>
       <div class={scroll ? 'dt-wrap dt-wrap--scroll' : 'dt-wrap'} style={style}>
-        <table class={dense ? 'dt dt--dense' : 'dt'}>
+        <table class={tableClass}>
           {caption && <caption class="sr-only">{caption}</caption>}
           <thead>
             <tr>
@@ -163,7 +170,16 @@ export function DataTable<T>({
                   <tr
                     key={rowKey(row)}
                     class={clickable ? 'is-link' : undefined}
-                    onClick={link == null && onRowClick ? () => onRowClick(row) : undefined}
+                    onClick={
+                      link != null
+                        ? // The row-wide link overlay is clipped to the first cell when it is sticky; route clicks elsewhere in the row.
+                          (e: MouseEvent) => {
+                            if (!(e.target as Element).closest('a, button, input, label')) navigate(link)
+                          }
+                        : onRowClick
+                          ? () => onRowClick(row)
+                          : undefined
+                    }
                   >
                     {columns.map((c, ci) => {
                       const content = c.render ? c.render(row) : (c.value?.(row) ?? '—')

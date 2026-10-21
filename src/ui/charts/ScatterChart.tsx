@@ -13,7 +13,7 @@ import {
   textWidth,
   useWidth,
 } from './common';
-import { formatNumber, isFiniteNumber, linearScale, makeTickFormat, niceTicks } from './scale';
+import { formatNumber, formatTicks, isFiniteNumber, linearScale, niceTicks } from './scale';
 
 export interface ScatterPoint {
   x: number;
@@ -107,12 +107,11 @@ export function ScatterChart(props: ScatterChartProps) {
     const plotT = props.yLabel ? 24 : 10;
     const plotB = Math.max(plotT + 20, height - 24 - (props.xLabel ? 16 : 0));
     const yTicks = niceTicks(yLo, yHi, Math.max(2, Math.floor((plotB - plotT) / 42)));
-    const yTickFormat = props.yFormat ?? makeTickFormat(yTicks);
-    const yTickLabels = yTicks.map(yTickFormat);
+    const yTickLabels = formatTicks(yTicks, props.yFormat);
     const plotL = Math.max(28, Math.ceil(Math.max(...yTickLabels.map((l) => textWidth(l)))) + 12);
     const plotR = Math.max(plotL + 20, width - 14);
     const xTicks = niceTicks(xLo, xHi, Math.max(2, Math.floor((plotR - plotL) / 80)));
-    const xTickFormat = props.xFormat ?? makeTickFormat(xTicks);
+    const xTickLabels = formatTicks(xTicks, props.xFormat);
 
     const xs = linearScale([xTicks[0], xTicks[xTicks.length - 1]], [plotL, plotR]);
     const ys = linearScale([yTicks[0], yTicks[yTicks.length - 1]], [plotB, plotT]);
@@ -218,9 +217,9 @@ export function ScatterChart(props: ScatterChartProps) {
             )}
           </g>
           <g class="mm-axis mm-axis-x">
-            {xTicks.map((t) => (
+            {xTicks.map((t, i) => (
               <text key={t} x={xs(t)} y={plotB + 16} text-anchor="middle">
-                {xTickFormat(t)}
+                {xTickLabels[i]}
               </text>
             ))}
             {props.xLabel && (

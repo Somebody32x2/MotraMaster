@@ -66,7 +66,7 @@
 
 /* Figure */
 .bm-silhouette {
-  fill: var(--surface-2);
+  fill: var(--bm-silhouette, var(--surface-2));
   stroke: var(--border);
   stroke-width: 1;
   stroke-linejoin: round;
@@ -82,7 +82,7 @@
 /* The surface-2 stroke carves a consistent gap between neighbouring muscles. */
 .bm-muscle {
   fill: var(--bm-fill, var(--bm-muscle));
-  stroke: var(--surface-2);
+  stroke: var(--bm-silhouette, var(--surface-2));
   stroke-width: 1;
   stroke-linejoin: round;
   outline: none;
@@ -234,5 +234,18 @@ button.bm-chip:focus-visible {
   .bm-muscle,
   button.bm-chip {
     transition: none;
+  }
+}
+
+/* Dark theme: lift the figure off the surface so it stays legible. */
+[data-theme='dark'] .bm {
+  --bm-silhouette: color-mix(in oklab, var(--text) 10%, var(--surface));
+  --bm-muscle: color-mix(in oklab, var(--text) 18%, var(--surface));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .bm {
+    --bm-silhouette: color-mix(in oklab, var(--text) 10%, var(--surface));
+    --bm-muscle: color-mix(in oklab, var(--text) 18%, var(--surface));
   }
 }

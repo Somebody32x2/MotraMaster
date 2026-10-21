@@ -144,6 +144,30 @@
   background: transparent;
 }
 
+/* Grid/flex children (cards, charts) must be allowed to shrink below their content width. */
+.grid-2 > *,
+.grid-3 > *,
+.grid-4 > *,
+.stack > * {
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .card__head {
+    flex-wrap: wrap;
+  }
+
+  .card__titles {
+    flex-basis: 12rem;
+  }
+
+  .card__actions {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
 /* ---------- Stat tile ---------- */
 .stat {
   display: flex;
@@ -441,7 +465,10 @@ a.stat:hover {
 /* ---------- Data table ---------- */
 .dt-wrap {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 @media (min-width: 861px) {
@@ -587,14 +614,32 @@ th[aria-sort='descending'] {
   border-top: 1px solid var(--border);
 }
 
-@media (max-width: 719px) {
-  .dt .hide-sm {
+/* Responsive columns (Column.priority) */
+@media (max-width: 860px) {
+  .dt .prio-3 {
     display: none;
+  }
+
+  /* Pinned first column while the wrapper scrolls sideways. Desktop keeps the row-wide link overlay. */
+  .dt--sticky-first th:first-child,
+  .dt--sticky-first td:first-child {
+    position: sticky;
+    left: 0;
+  }
+
+  .dt--sticky-first th:first-child {
+    z-index: 2;
+  }
+
+  .dt--sticky-first td:first-child {
+    z-index: 1;
+    background: var(--surface);
   }
 }
 
-@media (max-width: 1080px) {
-  .dt .hide-md {
+@media (max-width: 639px) {
+  .dt .prio-2,
+  .dt .dt-wide-only {
     display: none;
   }
 }
@@ -838,6 +883,11 @@ th[aria-sort='descending'] {
   transform: translate(-50%, 2px);
   transition: opacity 120ms var(--ease), transform 120ms var(--ease), visibility 120ms;
   pointer-events: none;
+}
+
+/* Even invisible, a positioned bubble widens the page's scrollable area on narrow screens. */
+.infotip__bubble[data-open='false'] {
+  display: none;
 }
 
 .infotip__bubble[data-align='start'] {

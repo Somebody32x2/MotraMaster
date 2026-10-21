@@ -22,7 +22,7 @@ import {
   formatNumber,
   isFiniteNumber,
   linearScale,
-  makeTickFormat,
+  formatTicks,
   niceTicks,
   timeTicks,
   toNumber,
@@ -271,8 +271,7 @@ export function LineChart(props: LineChartProps) {
     if (hasYMin) yTicks = yTicks.filter((t) => t >= (yMin as number));
     const dLo = hasYMin ? (yMin as number) : yTicks[0];
     const dHi = yTicks.length ? Math.max(yTicks[yTicks.length - 1], dLo + 1e-9) : dLo + 1;
-    const yTickFormat = props.yFormat ?? makeTickFormat(yTicks);
-    const yTickLabels = yTicks.map(yTickFormat);
+    const yTickLabels = formatTicks(yTicks, props.yFormat);
     const marginLeft = Math.max(28, Math.ceil(Math.max(0, ...yTickLabels.map((l) => textWidth(l)))) + 12);
 
     const plotL = marginLeft;

@@ -111,8 +111,8 @@ export default function WorkoutDetailPage({ workoutId }: { workoutId: string }) 
 
         <Card title="Muscles worked" subtitle="Hard sets credited to each muscle" class="ov-span-12">
           {regions.length ? (
-            <div class="ov-muscle">
-              <BodyMap values={d.regionSets} scale="relative" size="sm" onSelect={(r) => navigate(paths.muscle(r))} />
+            <div class="wo-muscle">
+              <div class="wo-muscle__map"><BodyMap values={d.regionSets} scale="relative" size="md" onSelect={(r) => navigate(paths.muscle(r))} /></div>
               <BarChart
                 orientation="horizontal"
                 data={regions.map(([r, n]) => ({

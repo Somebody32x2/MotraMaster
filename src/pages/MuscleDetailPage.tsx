@@ -243,7 +243,7 @@ function exerciseColumns(units: Units, repStats: Map<string, RepStats>, detailed
       id: 'spark',
       header: 'Progress',
       sortable: false,
-      hideBelow: 'sm',
+      priority: 2,
       render: (e) => (
         <Sparkline values={e.spark} width={88} height={24} trendColor ariaLabel={`${e.name} session trend`} />
       ),
@@ -258,8 +258,8 @@ function exerciseColumns(units: Units, repStats: Map<string, RepStats>, detailed
     },
   ]
   if (detailed) {
-    cols.splice(2, 0, { id: 'hard', header: 'Hard', value: (e) => e.hardSets, kind: 'number', hideBelow: 'md', title: 'Working sets (warm-ups excluded)' })
-    cols.push({ id: 'last', header: 'Last', value: (e) => e.lastDate?.getTime() ?? null, kind: 'number', hideBelow: 'md', render: (e) => formatDate(e.lastDate, 'short') })
+    cols.splice(2, 0, { id: 'hard', header: 'Hard', value: (e) => e.hardSets, kind: 'number', priority: 3, title: 'Working sets (warm-ups excluded)' })
+    cols.push({ id: 'last', header: 'Last', value: (e) => e.lastDate?.getTime() ?? null, kind: 'number', priority: 3, render: (e) => formatDate(e.lastDate, 'short') })
   }
   return cols
 }

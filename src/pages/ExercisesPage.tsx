@@ -38,11 +38,11 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
       id: 'regions',
       header: 'Muscles',
       sortable: false,
-      hideBelow: 'md',
+      priority: 3,
       render: (e) => <RegionChips regions={e.regions} max={2} />,
     },
-    { id: 'sessions', header: 'Sessions', kind: 'number', value: (e) => e.sessions, hideBelow: 'sm' },
-    { id: 'sets', header: 'Sets', kind: 'number', value: (e) => e.sets },
+    { id: 'sessions', header: 'Sessions', kind: 'number', value: (e) => e.sessions, priority: 3 },
+    { id: 'sets', header: 'Sets', kind: 'number', value: (e) => e.sets, priority: 2 },
     {
       id: 'best',
       header: 'Best',
@@ -75,7 +75,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
       id: 'latest',
       header: 'Latest',
       kind: 'number',
-      hideBelow: 'sm',
+      priority: 3,
       title: 'Estimated 1RM in the most recent session; total reps for bodyweight work',
       value: (e) => (e.weighted ? e.latestE1rm : null),
       render: (e) => {
@@ -97,7 +97,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
       id: 'spark',
       header: 'Progress',
       sortable: false,
-      hideBelow: 'sm',
+      priority: 2,
       render: (e) => (
         <Sparkline
           values={e.spark}
@@ -124,6 +124,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
         id: 'rate',
         header: '%/mo',
         kind: 'number',
+        priority: 2,
         title: 'Theil–Sen rate of e1RM change over the last 90 days',
         value: (e) => e.ratePerMonth,
         render: (e) => (
@@ -136,7 +137,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
         id: 'volume',
         header: 'Volume',
         kind: 'number',
-        hideBelow: 'md',
+        priority: 3,
         value: (e) => (e.volumeLb > 0 ? e.volumeLb : null),
         render: (e) => (e.volumeLb > 0 ? formatWeight(e.volumeLb, units, { compact: true }) : '—'),
       },
@@ -144,7 +145,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
         id: 'catalog',
         header: 'Catalog',
         align: 'center',
-        hideBelow: 'md',
+        priority: 3,
         title: 'Found in the bundled Motra exercise catalog (adds secondary muscles)',
         value: (e) => (e.inCatalog ? 1 : 0),
         kind: 'number',
@@ -165,7 +166,7 @@ function columns(units: Units, reps: Map<string, RepStats>, isDetailed: boolean)
     id: 'last',
     header: 'Last',
     kind: 'number',
-    hideBelow: 'md',
+    priority: 3,
     value: (e) => e.lastDate?.getTime() ?? null,
     render: (e) => <span class="muted">{formatDate(e.lastDate, 'short')}</span>,
   })

@@ -144,7 +144,7 @@ export function makeTickFormat(ticks: readonly number[]): (n: number) => string 
   if (maxAbs >= 1e4) {
     const d = Math.min(2, decimalsFor(step / 1e3));
     const f = numberFormat(d, d);
-    return (n) => (n === 0 ? '0' : `${f.format(n / 1e3)}k`);
+    return (n) => (n === 0 ? '0' : `${f.format(n / 1e3)}K`);
   }
   const d = Math.min(6, decimalsFor(step));
   const f = numberFormat(d, d);
@@ -301,4 +301,25 @@ export function timeTicks(start: XValue, end: XValue, count = 6): TimeTick[] {
     cur = addUnits(cur, unit, n);
   }
   return ticks;
+}
+
+/** Compact formatter with one compaction level for all ticks; optional unit suffix (e.g. ' lb'). */
+export function compactTickFormatter(ticks: readonly number[], unit = ''): (n: number) => string {
+  const base = makeTickFormat(ticks);
+  return (n) => `${base(n)}${unit}`;
+}
+
+/**
+ * Formats axis ticks. With a caller format, labels that mix compacted (K/M)
+ * and plain values are re-formatted with one compaction level, keeping the unit suffix.
+ */
+export function formatTicks(ticks: readonly number[], format?: (n: number) => string): string[] {
+  if (!format) return ticks.map(makeTickFormat(ticks));
+  const labels = ticks.map(format);
+  const compact = /\d(?:[.,]\d+)?\s?[kKmM]\b/;
+  const hits = labels.filter((l) => compact.test(l)).length;
+  if (hits === 0 || hits === labels.length) return labels;
+  const sample = labels.find((l) => compact.test(l)) ?? '';
+  const unit = /[\d.,]\s?[kKmM]?(\s*[^\d\s.,][^\d]*)$/.exec(sample)?.[1] ?? '';
+  return ticks.map(compactTickFormatter(ticks, unit.replace(/^[kKmM]/, '')));
 }

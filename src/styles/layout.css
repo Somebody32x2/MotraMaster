@@ -234,7 +234,9 @@
   .topbar__controls {
     order: 3;
     width: 100%;
+    min-width: 0;
     margin-left: 0;
+    /* Last-resort containment: the row scrolls itself, never the page. */
     overflow-x: auto;
     scrollbar-width: none;
     padding-bottom: 2px;
@@ -281,6 +283,12 @@
     color: var(--text-faint);
   }
 
+  /* Keep focused/anchored content clear of the sticky top bar and the fixed tab bar. */
+  html {
+    scroll-padding-top: var(--topbar-h);
+    scroll-padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+
   .tabbar__item svg {
     width: 20px;
     height: 20px;
@@ -292,6 +300,37 @@
 
   .tabbar__item[aria-current='page'] svg {
     color: var(--accent);
+  }
+}
+
+@media (max-width: 639px) {
+  /* Theme lives in Settings; range + detail share the row. */
+  .topbar__controls .topbar__theme {
+    display: none;
+  }
+
+  .topbar__controls:not(:has(.topbar__range)) {
+    display: none;
+  }
+
+  .topbar__controls .topbar__range {
+    flex: 1 1 auto;
+  }
+
+  .topbar__controls .topbar__detail {
+    flex: 0 1 auto;
+  }
+
+  .topbar__range .seg__btn {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 379px) {
+  .topbar__controls .seg__btn {
+    min-width: 28px;
+    padding: 0 6px;
+    font-size: var(--fs-xs);
   }
 }
 

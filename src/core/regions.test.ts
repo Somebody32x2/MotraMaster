@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeKey } from './labels.ts';
-import { catalogLookup, REGION_ORDER, REGIONS, regionName, resolveMuscle } from './regions.ts';
+import { catalogLookup, explainMuscle, REGION_ORDER, REGIONS, regionName, resolveMuscle } from './regions.ts';
 
 describe('resolveMuscle', () => {
   it('maps synonyms from the §2.2 table', () => {
@@ -49,6 +49,43 @@ describe('resolveMuscle', () => {
   it('maps full body and cardio buckets', () => {
     expect(resolveMuscle(normalizeKey('fullBody'))).toEqual({ fullBody: 1 });
     expect(resolveMuscle('conditioning')).toEqual({ cardio: 1 });
+  });
+});
+
+describe('explainMuscle', () => {
+  it('flags Motra official ids', () => {
+    expect(explainMuscle('chest')).toEqual({ regions: { chest: 1 }, via: 'motra' });
+    expect(explainMuscle('lowerBack')).toEqual({ regions: { lowerBack: 1 }, via: 'motra' });
+    expect(explainMuscle(normalizeKey('hipFlexors')).via).toBe('motra');
+    expect(explainMuscle('tibialis anterior').via).toBe('motra');
+    expect(explainMuscle('neck').via).toBe('synonym');
+  });
+
+  it('reports synonym hits, including the trailing-s retry', () => {
+    expect(explainMuscle('grip')).toEqual({ regions: { forearms: 1 }, via: 'synonym' });
+    expect(explainMuscle('pecs').via).toBe('synonym');
+    expect(explainMuscle('clavicular pecs')).toEqual({ regions: { chest: 1 }, via: 'synonym' });
+  });
+
+  it('reports group splits', () => {
+    expect(explainMuscle('back')).toEqual({ regions: { lats: 0.5, traps: 0.5 }, via: 'group' });
+    expect(explainMuscle('core').via).toBe('group');
+    expect(explainMuscle('lower body').via).toBe('group');
+  });
+
+  it('reports keyword fallback matches', () => {
+    expect(explainMuscle('biceps femoris long head')).toEqual({ regions: { hamstrings: 1 }, via: 'keyword' });
+    expect(explainMuscle('grip strength').via).toBe('keyword');
+  });
+
+  it('reports unmatched labels as other', () => {
+    expect(explainMuscle('plyometric thing')).toEqual({ regions: { other: 1 }, via: 'other' });
+  });
+
+  it('shares its regions with resolveMuscle', () => {
+    for (const k of ['chest', 'grip', 'back', 'upper back muscles', 'plyometric thing']) {
+      expect(resolveMuscle(k)).toBe(explainMuscle(k).regions);
+    }
   });
 });
 

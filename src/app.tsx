@@ -186,6 +186,7 @@ function TopBar({ showDataControls }: { showDataControls: boolean }) {
           <>
             <Segmented
               label="Time range"
+              class="topbar__range"
               options={RANGE_OPTIONS}
               value={range.value}
               onChange={(v) => {
@@ -194,14 +195,17 @@ function TopBar({ showDataControls }: { showDataControls: boolean }) {
             />
             <Segmented
               label="Detail level"
+              class="topbar__detail"
               options={DETAIL_OPTIONS}
               value={s.detail}
               onChange={(detail) => updateSettings({ detail })}
             />
           </>
         )}
+        {/* Narrow screens drop the theme control here; it stays reachable in Settings. */}
         <Segmented
           label="Theme"
+          class="topbar__theme"
           icons
           options={THEME_OPTIONS}
           value={s.theme}

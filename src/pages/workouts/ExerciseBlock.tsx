@@ -82,7 +82,7 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
       header: 'Time/rep',
       align: 'right',
       title: 'Set duration ÷ reps, from the watch',
-      hideBelow: 'sm',
+      priority: 2,
       render: ({ set }) => {
         const v = secPerRep(set)
         return v != null ? `${formatNumber(v, { maxDecimals: 1 })}s` : '—'
@@ -90,7 +90,7 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
     },
   )
   if (isDetailed) {
-    cols.push({ id: 'time', header: 'Set time', align: 'right', hideBelow: 'sm', render: ({ set }) => formatDuration(set.durationSec) })
+    cols.push({ id: 'time', header: 'Set time', align: 'right', priority: 2, render: ({ set }) => formatDuration(set.durationSec) })
   }
   cols.push({
     id: 'type',

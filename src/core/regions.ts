@@ -142,28 +142,54 @@ function clean(key: string): string {
   return normalizeKey(key).replace(/[-()]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-const resolved = new Map<string, Credit>();
+/** Motra's 18 official muscle ids (every drawn region except neck), cleaned. */
+const MOTRA_KEYS = new Set(
+  REGION_ORDER.filter((id) => REGIONS[id].drawn && id !== 'neck').map((id) => clean(id)),
+);
+const GROUP_KEYS = new Set(GROUPS.flatMap(([labels]) => labels));
+
+export type MuscleVia = 'motra' | 'synonym' | 'group' | 'keyword' | 'other';
+
+export interface MuscleExplanation {
+  regions: Credit;
+  via: MuscleVia;
+}
+
+const resolved = new Map<string, MuscleExplanation>();
+
+/**
+ * How a muscle label resolves: region credits plus which rule matched —
+ * a Motra id, a synonym (incl. trailing-s retry), a group split, the keyword
+ * fallback, or nothing ('other'). Result is shared: do not mutate.
+ */
+export function explainMuscle(key: string): MuscleExplanation {
+  const hit = resolved.get(key);
+  if (hit) return hit;
+  const k = clean(key);
+  const tableKey = TABLE.has(k) ? k : k.endsWith('s') && TABLE.has(k.slice(0, -1)) ? k.slice(0, -1) : null;
+  let out: MuscleExplanation | undefined;
+  if (tableKey !== null) {
+    const via: MuscleVia = MOTRA_KEYS.has(k) ? 'motra' : GROUP_KEYS.has(tableKey) ? 'group' : 'synonym';
+    out = { regions: TABLE.get(tableKey)!, via };
+  } else {
+    for (const [re, credit] of FALLBACK) {
+      if (re.test(k)) {
+        out = { regions: credit, via: 'keyword' };
+        break;
+      }
+    }
+  }
+  out ??= { regions: { other: 1 }, via: 'other' };
+  resolved.set(key, out);
+  return out;
+}
 
 /**
  * Normalized muscle key → region credits summing to 1 (research §2.2/§2.3).
  * Group labels split equally; unknown labels → { other: 1 }. Result is shared: do not mutate.
  */
 export function resolveMuscle(key: string): Credit {
-  const hit = resolved.get(key);
-  if (hit) return hit;
-  const k = clean(key);
-  let out = TABLE.get(k) ?? (k.endsWith('s') ? TABLE.get(k.slice(0, -1)) : undefined);
-  if (!out) {
-    for (const [re, credit] of FALLBACK) {
-      if (re.test(k)) {
-        out = credit;
-        break;
-      }
-    }
-  }
-  out ??= { other: 1 };
-  resolved.set(key, out);
-  return out;
+  return explainMuscle(key).regions;
 }
 
 /** Delt head named by a muscle label ('rear delts' → 'rear'), else null. */

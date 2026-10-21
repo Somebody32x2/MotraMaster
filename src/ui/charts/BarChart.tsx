@@ -16,7 +16,7 @@ import {
   truncate,
   useWidth,
 } from './common';
-import { clamp, formatNumber, isFiniteNumber, linearScale, makeTickFormat, niceTicks } from './scale';
+import { clamp, formatNumber, formatTicks, isFiniteNumber, linearScale, niceTicks } from './scale';
 
 export interface BarDatum {
   key: string;
@@ -310,8 +310,7 @@ export function BarChart(props: BarChartProps) {
       const ticks = niceTicks(lo, hi === lo ? lo + 1 : hi, Math.max(2, Math.floor((plotB - plotT) / 42)));
       const dLo = ticks[0];
       const dHi = ticks[ticks.length - 1];
-      const tickFormat = props.valueFormat ?? makeTickFormat(ticks);
-      const tickLabels = ticks.map(tickFormat);
+      const tickLabels = formatTicks(ticks, props.valueFormat);
       const plotL = Math.max(28, Math.ceil(Math.max(...tickLabels.map((l) => textWidth(l)))) + 12);
       const plotR = Math.max(plotL + 20, width - 8);
       const ys = linearScale([dLo, dHi], [plotB, plotT]);

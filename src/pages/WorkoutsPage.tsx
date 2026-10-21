@@ -25,7 +25,10 @@ function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
       render: (r) => (
         <span class="wo-date">
           <span>{r.date ? formatDate(r.date, 'weekday') : 'Undated'}</span>
-          <span class="faint">{r.date ? `${formatDate(r.date, 'time')} · ${r.date.getFullYear()}` : ''}</span>
+          <span class="faint">
+            {r.date && <span class="dt-wide-only">{formatDate(r.date, 'time')} · </span>}
+            {r.date?.getFullYear()}
+          </span>
         </span>
       ),
     },
@@ -41,11 +44,12 @@ function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
         </span>
       ),
     },
-    { id: 'duration', header: 'Duration', kind: 'number', value: (r) => r.durationSec, render: (r) => formatDuration(r.durationSec), hideBelow: 'sm' },
+    { id: 'duration', header: 'Duration', kind: 'number', value: (r) => r.durationSec, render: (r) => formatDuration(r.durationSec), priority: 2 },
     {
       id: 'hard',
       header: 'Hard sets',
       kind: 'number',
+      priority: 2,
       title: 'Working sets, excluding warm-ups',
       value: (r) => r.hardSets,
       render: (r) => (
@@ -56,13 +60,13 @@ function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
       ),
     },
     { id: 'volume', header: 'Volume', kind: 'number', value: (r) => r.volumeLb, render: (r) => formatWeight(r.volumeLb, units, { compact: true }) },
-    { id: 'exercises', header: 'Exercises', kind: 'number', value: (r) => r.exercises, hideBelow: 'md' },
+    { id: 'exercises', header: 'Exercises', kind: 'number', value: (r) => r.exercises, priority: 3 },
     {
       id: 'regions',
       header: 'Muscles',
       sortable: false,
       render: (r) => (r.topRegions.length ? <RegionChips regions={r.topRegions} max={3} /> : <span class="faint">—</span>),
-      hideBelow: 'md',
+      priority: 3,
     },
   ]
   if (isDetailed) {
@@ -74,7 +78,7 @@ function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
         title: 'Volume per minute of session time',
         value: (r) => r.density,
         render: (r) => (r.density != null ? `${formatWeight(r.density, units, { unit: false })} ${unitLabel(units)}/min` : '—'),
-        hideBelow: 'md',
+        priority: 3,
       },
       {
         id: 'kcalmin',
@@ -82,7 +86,7 @@ function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
         kind: 'number',
         value: (r) => r.kcalPerMin,
         render: (r) => formatNumber(r.kcalPerMin, { maxDecimals: 1 }),
-        hideBelow: 'md',
+        priority: 3,
       },
       {
         id: 'calories',
@@ -90,7 +94,7 @@ function columns(units: Units, isDetailed: boolean): Column<WorkoutSummary>[] {
         kind: 'number',
         value: (r) => r.workout.calories,
         render: (r) => formatNumber(r.workout.calories, { maxDecimals: 0 }),
-        hideBelow: 'md',
+        priority: 3,
       },
     )
   }
