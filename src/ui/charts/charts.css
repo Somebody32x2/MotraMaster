@@ -1,0 +1,479 @@
+/* Charts consume only shared design tokens so they follow the active theme. */
+
+.mm-chart {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-chart-canvas {
+  position: relative;
+  width: 100%;
+}
+
+.mm-chart svg,
+.mm-sparkline {
+  display: block;
+  overflow: visible;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mm-chart svg {
+  touch-action: pan-y;
+}
+
+.mm-chart svg:focus {
+  outline: none;
+}
+
+.mm-chart svg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.mm-chart svg.mm-clickable {
+  cursor: pointer;
+}
+
+.mm-chart text {
+  font-size: 11px;
+  fill: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-chart .mm-axis-title {
+  fill: var(--text-faint);
+  font-size: 11px;
+}
+
+/* Gridlines: horizontal only, 1px, quiet. */
+.mm-grid line {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+
+.mm-baseline {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+/* Lines */
+.mm-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.mm-dot {
+  fill: var(--surface);
+  stroke-width: 1.5;
+}
+
+.mm-dot-active {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.mm-crosshair {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.mm-marker-line {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.45;
+}
+
+.mm-marker-head {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.mm-marker-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+/* Bars */
+.mm-bar path {
+  transition: opacity 120ms ease;
+}
+
+.mm-bars.has-active .mm-bar:not(.is-active) path {
+  opacity: 0.5;
+}
+
+.mm-bar-hover-bg {
+  fill: var(--surface-2);
+}
+
+.mm-chart .mm-bar-label {
+  fill: var(--text);
+  font-size: 12px;
+}
+
+.mm-chart .mm-bar-value {
+  fill: var(--text-muted);
+}
+
+.mm-target-band rect {
+  fill: var(--pos);
+  fill-opacity: 0.08;
+}
+
+.mm-target-edge {
+  stroke: var(--pos);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.5;
+}
+
+.mm-chart .mm-target-label {
+  fill: var(--pos);
+  font-size: 10.5px;
+}
+
+/* Scatter */
+.mm-scatter-dot {
+  fill-opacity: 0.55;
+  stroke-width: 1;
+  stroke-opacity: 0.9;
+}
+
+.mm-scatter-dot.is-active {
+  fill-opacity: 1;
+}
+
+.mm-curve {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-opacity: 0.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Calendar heatmap: 5 intensity steps mixed from the accent. */
+.mm-heat-cell {
+  stroke: transparent;
+  stroke-width: 1;
+}
+
+.mm-heat-cell.is-active {
+  stroke: var(--text);
+}
+
+.mm-heat-l0 {
+  fill: var(--surface-2);
+  background: var(--surface-2);
+}
+
+.mm-heat-l1 {
+  fill: color-mix(in srgb, var(--accent) 25%, var(--surface-2));
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface-2));
+}
+
+.mm-heat-l2 {
+  fill: color-mix(in srgb, var(--accent) 48%, var(--surface-2));
+  background: color-mix(in srgb, var(--accent) 48%, var(--surface-2));
+}
+
+.mm-heat-l3 {
+  fill: color-mix(in srgb, var(--accent) 72%, var(--surface-2));
+  background: color-mix(in srgb, var(--accent) 72%, var(--surface-2));
+}
+
+.mm-heat-l4 {
+  fill: var(--accent);
+  background: var(--accent);
+}
+
+.mm-heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.mm-heatmap-legend > span:first-child {
+  margin-right: 4px;
+}
+
+.mm-heatmap-legend > span:last-child {
+  margin-left: 4px;
+}
+
+.mm-heat-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* Sparkline */
+.mm-sparkline {
+  flex: none;
+}
+
+.mm-sparkline-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.mm-sparkline-empty {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+/* Donut */
+.mm-donut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.mm-donut svg {
+  flex: none;
+  max-width: 100%;
+  height: auto;
+}
+
+.mm-donut-slice {
+  transition: opacity 120ms ease;
+}
+
+.mm-donut-slices.has-active .mm-donut-slice:not(.is-active) {
+  opacity: 0.45;
+}
+
+.mm-donut-empty {
+  fill: var(--surface-2);
+}
+
+.mm-chart .mm-donut-label {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.mm-chart .mm-donut-value {
+  fill: var(--text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.mm-chart .mm-donut-note {
+  fill: var(--text-faint);
+  font-size: 11px;
+}
+
+.mm-donut-legend {
+  flex: 1 1 180px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  font-size: 13px;
+}
+
+.mm-donut-legend-item {
+  display: contents;
+  color: var(--text);
+}
+
+.mm-donut-legend-item > * {
+  padding: 3px 0;
+  transition: opacity 120ms ease;
+}
+
+.mm-donut-legend-item > .mm-swatch {
+  align-self: center;
+  padding: 0;
+}
+
+.mm-donut-legend:has(.is-active) .mm-donut-legend-item:not(.is-active) > * {
+  opacity: 0.5;
+}
+
+.mm-donut-legend-item.mm-clickable {
+  cursor: pointer;
+}
+
+.mm-donut-legend-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mm-donut-legend-value {
+  text-align: right;
+}
+
+.mm-donut-legend-share {
+  text-align: right;
+  color: var(--text-muted);
+  min-width: 3.5ch;
+}
+
+/* Legend */
+.mm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mm-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mm-swatch {
+  display: inline-block;
+  flex: none;
+}
+
+.mm-swatch-square {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.mm-swatch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.mm-swatch-line {
+  width: 14px;
+  height: 0;
+  border-top-width: 2px;
+}
+
+.mm-swatch-spacer {
+  width: 10px;
+}
+
+/* Tooltip */
+.mm-tooltip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  min-width: 120px;
+  max-width: min(280px, 80vw);
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  animation: mm-tooltip-in 120ms ease-out;
+}
+
+@keyframes mm-tooltip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.mm-tooltip-title {
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-tooltip-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.mm-tooltip-row + .mm-tooltip-row {
+  margin-top: 2px;
+}
+
+.mm-tooltip-label {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mm-tooltip-value {
+  font-weight: 600;
+  text-align: right;
+}
+
+.mm-tooltip-note {
+  grid-column: 2 / -1;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+/* Empty state */
+.mm-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.mm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-tooltip {
+    animation: none;
+  }
+
+  .mm-bar path,
+  .mm-donut-slice,
+  .mm-donut-legend-item > * {
+    transition: none;
+  }
+}
