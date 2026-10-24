@@ -34,7 +34,7 @@ export function summarize(ex: ExerciseCtx, win: Window, metric: StrengthMetric):
   let bestHoldSec: number | null = null;
   for (let i = a; i < b; i++) {
     const s = ex.sets[i];
-    if (s.hard) hardSets++;
+    hardSets += s.credit;
     volumeLb += s.volumeLb;
     if (s.weightLb !== null && s.weightLb > 0 && (bestWeightLb === null || s.weightLb > bestWeightLb)) bestWeightLb = s.weightLb;
     if (s.holdSec !== null && s.holdSec > 0 && (bestHoldSec === null || s.holdSec > bestHoldSec)) bestHoldSec = s.holdSec;
@@ -103,15 +103,15 @@ export function restOf(s: EnrichedSet): number | null {
   return !s.firstOfBlock && s.restSec !== null && s.restSec > 0 && s.restSec <= REST_MAX ? s.restSec : null;
 }
 
-/** Zone/rep-range counts over hard sets. */
+/** Zone/rep-range shares over hard sets, weighted by set credit. */
 export function intensityAndReps(ctx: Ctx, sets: EnrichedSet[]): { zones: number[]; reps: number[] } {
   const zones = [0, 0, 0, 0, 0];
   const reps = [0, 0, 0, 0];
   for (const s of sets) {
-    if (!s.hard) continue;
+    if (s.credit <= 0) continue;
     const pct = ctx.setPct.get(s.setId);
-    if (pct !== undefined) zones[bucket(pct, ZONE_BOUNDS)]++;
-    if (s.reps !== null && s.reps >= 1) reps[bucket(s.reps, REP_BOUNDS)]++;
+    if (pct !== undefined) zones[bucket(pct, ZONE_BOUNDS)] += s.credit;
+    if (s.reps !== null && s.reps >= 1) reps[bucket(s.reps, REP_BOUNDS)] += s.credit;
   }
   return { zones: shares(zones), reps: shares(reps) };
 }
@@ -126,13 +126,13 @@ function delta(points: { date: Date; value: number }[], days: number): number | 
   return null;
 }
 
-/** Mean drop-off 1 − reps_last/reps_first over sessions with ≥ 3 hard sets at one weight. */
+/** Mean drop-off 1 − reps_last/reps_first over sessions with ≥ 3 straight (non-drop) hard sets at one weight. */
 function fatigueDropoff(sessions: { sets: EnrichedSet[] }[]): number | null {
   const values: number[] = [];
   for (const sess of sessions) {
     const byWeight = new Map<number, EnrichedSet[]>();
     for (const s of sess.sets) {
-      if (!s.hard || s.reps === null || s.reps < 1) continue;
+      if (!s.hard || s.drop || s.reps === null || s.reps < 1) continue;
       const w = s.loadLb ?? 0;
       const arr = byWeight.get(w);
       if (arr) arr.push(s);
@@ -238,7 +238,22 @@ export function exerciseDetail(idx: AnalysisIndex, key: string, win: Window, set
   const history: ExerciseSessionRow[] = sessions.map((s) => ({
     workoutId: s.workoutId,
     date: s.date,
-    sets: s.sets.map((x) => ({ weightLb: x.weightLb, loadLb: x.loadLb, loadBasis: x.loadBasis, reps: x.reps, e1rm: x.e1rm?.value ?? null, hard: x.hard, restSec: x.restSec, durationSec: x.durationSec, holdSec: x.holdSec })),
+    sets: s.sets.map((x) => ({
+      weightLb: x.weightLb,
+      loadLb: x.loadLb,
+      loadBasis: x.loadBasis,
+      reps: x.reps,
+      e1rm: x.e1rm?.value ?? null,
+      hard: x.hard,
+      hardReason: x.hardReason,
+      credit: x.credit,
+      drop: x.drop,
+      pctOfTop: x.pctOfTop,
+      effort: x.effort,
+      restSec: x.restSec,
+      durationSec: x.durationSec,
+      holdSec: x.holdSec,
+    })),
     volumeLb: s.volumeLb,
     bestE1rm: s.e1rm?.e1rm ?? null,
     topWeightLb: s.topWeightLb,

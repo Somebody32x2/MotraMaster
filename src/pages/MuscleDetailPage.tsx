@@ -1,7 +1,7 @@
-import { useMemo } from 'preact/hooks'
+import { useMemo, useState } from 'preact/hooks'
 import { analysisIndex, analysisWindow } from '../analysis'
-import { muscleDetail } from '../core/analytics'
-import type { ExerciseSummary, MuscleDetail, RegionId } from '../core/analytics/types'
+import { muscleDetail, muscleWeek } from '../core/analytics'
+import type { AnalysisIndex, ExerciseSummary, MuscleDetail, RegionId, Window } from '../core/analytics/types'
 import { displayLabel } from '../core/labels'
 import { isRegionId, REGIONS, regionName } from '../core/regions'
 import type { Units } from '../core/types'
@@ -17,9 +17,10 @@ import { StatStrip } from '../ui/components/StatStrip'
 import { StatTile } from '../ui/components/StatTile'
 import { formatDate, formatNumber, formatPercent, formatRelative, formatWeight, plural, toDisplayWeight, unitLabel } from '../ui/format'
 import { IconMuscles } from '../ui/icons'
-import { BwBadge, formatHold, formatStrength, formatUnitValue, PrList, strengthBestLabel, TrendBadge, VolumeBandBadge } from '../ui/widgets'
+import { BwBadge, formatHold, formatSetCredit, formatStrength, formatUnitValue, HARD_SET_RULE, PrList, strengthBestLabel, TrendBadge, VolumeBandBadge } from '../ui/widgets'
 import { displayWeightFormat, repStatsByExercise, type RepStats } from './exercises/util'
 import { FRACTIONAL_INFO, TARGET_HI, TARGET_LO, WEEKLY_SETS_INFO } from './muscles/bands'
+import { WeekBreakdown } from './muscles/WeekBreakdown'
 import './muscles/muscles.css'
 
 const GROUP_LABEL = { upper: 'Upper body', core: 'Core', lower: 'Lower body', other: 'Not a body region' } as const
@@ -39,6 +40,9 @@ export default function MuscleDetailPage({ muscleKey }: { muscleKey: string }) {
 
   const detail = useMemo(() => (idx && region ? muscleDetail(idx, region, win) : null), [idx, region, win])
   const repStats = useMemo(() => (idx ? repStatsByExercise(idx, win) : new Map<string, RepStats>()), [idx, win])
+  // Week picked on the weekly chart (its Monday, ms); null = the trailing 7 days behind the headline number.
+  const [picked, setPicked] = useState<{ region: RegionId | null; week: number } | null>(null)
+  const week = picked && picked.region === region ? picked.week : null
 
   const back = { path: paths.muscles(), label: 'All muscles' }
 
@@ -90,9 +94,24 @@ export default function MuscleDetailPage({ muscleKey }: { muscleKey: string }) {
         <Stats d={detail} units={units} detailed={isDetailed} />
 
         <div class="msplit msplit--8-4">
-          <WeeklySetsCard d={detail} detailed={isDetailed} />
+          <WeeklySetsCard
+            d={detail}
+            detailed={isDetailed}
+            selected={week}
+            onSelect={(t) => setPicked(t === week ? null : { region, week: t })}
+          />
           <PairedCard d={detail} />
         </div>
+
+        <WhatCountedCard
+          idx={idx!}
+          d={detail}
+          win={win}
+          week={week}
+          units={units}
+          detailed={isDetailed}
+          onReset={() => setPicked(null)}
+        />
 
         <ExercisesCard rows={detail.exercises} units={units} repStats={repStats} detailed={isDetailed} />
 
@@ -153,15 +172,27 @@ function Stats({ d, units, detailed }: { d: MuscleDetail; units: Units; detailed
   )
 }
 
-function WeeklySetsCard({ d, detailed }: { d: MuscleDetail; detailed: boolean }) {
+function WeeklySetsCard({
+  d,
+  detailed,
+  selected,
+  onSelect,
+}: {
+  d: MuscleDetail
+  detailed: boolean
+  selected: number | null
+  onSelect: (weekStart: number) => void
+}) {
   const weeks = d.weekly.slice(-MAX_WEEKS)
   const data: BarDatum[] = weeks.map((w) => ({
-    key: w.weekStart.toISOString(),
+    key: String(w.weekStart.getTime()),
     label: formatDate(w.weekStart, 'short'),
     values: detailed ? [w.sets, Math.max(0, w.fractional - w.sets)] : w.sets,
+    // Stacked bars take the palette; single bars dim around the picked week.
+    color: selected != null && w.weekStart.getTime() !== selected ? 'var(--ramp-3)' : undefined,
   }))
   return (
-    <Card title="Weekly sets" info={detailed ? FRACTIONAL_INFO : WEEKLY_SETS_INFO}>
+    <Card title="Weekly sets" subtitle="Pick a week to see what counted" info={detailed ? FRACTIONAL_INFO : WEEKLY_SETS_INFO}>
       <BarChart
         data={data}
         stackLabels={detailed ? ['Direct', 'Secondary (×0.5)'] : undefined}
@@ -170,8 +201,67 @@ function WeeklySetsCard({ d, detailed }: { d: MuscleDetail; detailed: boolean })
         height={240}
         emptyText="No weeks with sets in this range."
         ariaLabel={`Weekly hard sets for ${d.name}`}
+        onBarClick={(key) => onSelect(Number(key))}
       />
       {d.weekly.length > MAX_WEEKS && <p class="chart-note">Showing the latest {MAX_WEEKS} weeks.</p>}
+    </Card>
+  )
+}
+
+/** The sets behind a count: the trailing 7 days by default, or the week picked on the chart (clipped to the range). */
+function WhatCountedCard({
+  idx,
+  d,
+  win,
+  week,
+  units,
+  detailed,
+  onReset,
+}: {
+  idx: AnalysisIndex
+  d: MuscleDetail
+  win: Window
+  week: number | null
+  units: Units
+  detailed: boolean
+  onReset: () => void
+}) {
+  const end = win.end
+  let start: Date
+  let spanEnd = end
+  let label: string
+  if (week == null) {
+    start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 6)
+    label = 'Last 7 days'
+  } else {
+    const monday = new Date(week)
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7, 0, 0, 0, -1)
+    start = win.start && win.start > monday ? win.start : monday
+    spanEnd = sunday < end ? sunday : end
+    label = `Week of ${formatDate(monday, 'short')}`
+  }
+  const data = muscleWeek(idx, d.region, start, spanEnd)
+  const exercises = data.exercises.filter((e) => e.role === 'direct').length
+  const summary = [
+    `${label}: ${formatSetCredit(data.sets)} ${data.sets === 1 ? 'set' : 'sets'} from ${plural(exercises, 'exercise')}`,
+    detailed && data.fractional > data.sets ? `${formatSetCredit(data.fractional)} fractional` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <Card
+      title="What counted"
+      subtitle={summary}
+      info="Every set of each exercise that trains this muscle. Solid sets count as hard sets; outlined ones (warm-ups, easy sets) do not. Hover a set to see the rule that decided it."
+      actions={
+        week != null ? (
+          <button type="button" class="btn btn--sm" onClick={onReset}>
+            Last 7 days
+          </button>
+        ) : undefined
+      }
+    >
+      <WeekBreakdown week={data} units={units} secondary={detailed} />
     </Card>
   )
 }
@@ -299,7 +389,7 @@ function exerciseColumns(units: Units, repStats: Map<string, RepStats>, detailed
     },
   ]
   if (detailed) {
-    cols.splice(2, 0, { id: 'hard', header: 'Hard', value: (e) => e.hardSets, kind: 'number', priority: 3, title: 'Working sets (warm-ups excluded)' })
+    cols.splice(2, 0, { id: 'hard', header: 'Hard', value: (e) => e.hardSets, kind: 'number', priority: 3, title: HARD_SET_RULE })
     cols.push({ id: 'last', header: 'Last', value: (e) => e.lastDate?.getTime() ?? null, kind: 'number', priority: 3, render: (e) => formatDate(e.lastDate, 'short') })
   }
   return cols

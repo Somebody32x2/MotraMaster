@@ -104,7 +104,7 @@ Every exercise page embeds a "Muscle Breakdown" JSON: `{"muscle":"lats","weight"
 - **Time (seconds):** set duration from the watch, e.g. 29.9 s for 10 reps ≈ 3.0 s/rep.
 - **Reps:** Motra counts one rep of a unilateral exercise as both sides. https://help.motra.com/en/articles/9696458-counting-reps
 - **Warm-up / cool-down sets:** these exist in the app (https://help.motra.com/en/articles/9672186-warm-up-wu-and-cool-down-cd-sets ) but there is **no set-type column** in the sample export → use the heuristic in §4.1.
-- **Drop sets** are supported in the app; they are not marked in the export. [INFERRED]
+- **Drop sets** are supported in the app (https://help.motra.com/en/articles/12770673-drop-sets ) but are not marked in the export [INFERRED: no set-type column in the sample] → detected heuristically, see §4.1.
 - **Motra's own e1RM ("Predicted" in PR Breakdown):** uses the last 90 days of data and updates daily. Formula unpublished. https://help.motra.com/en/articles/9703315-personal-record-pr-breakdown
 
 ---
@@ -316,6 +316,12 @@ Example: 100 lb × 6 → Epley 120.0, Brzycki 116.1, Wathan 120.3, Mayhew 121.5,
   - otherwise (bodyweight): yes.
 
   This removes ramp-up warm-ups. Robinson 2024 shows hypertrophy improves as sets approach failure (https://pubmed.ncbi.nlm.nih.gov/38970765/ ), so counting light warm-ups would overstate stimulus.
+- **Drop set** [INFERRED heuristic]. A performed, non-timed set is a drop when the previous set in the workout is the same exercise and either
+  - the set is marked by hand: "drop set" in its note, or a set-type column (should Motra add one) reading `D` / `Drop` / `Drop set`; or
+  - its load is at least 5% lighter than the previous set's **and** its rest is ≤ 30 s. Rest is only trusted when the workout has some rest > 0 (workouts logged without timing report 0 everywhere).
+
+  Drops are taken straight after a set to failure, so they are hard regardless of the 60% rule (a logged effort < 6 still wins). Each drop counts as `Settings.dropSetCredit` sets: 0 (the drop set counts once, via its top set), **0.5 (default)**, or 1. Drop sets give hypertrophy similar to traditional sets in less time (Sødal 2023 meta-analysis, https://pmc.ncbi.nlm.nih.gov/articles/PMC10390395/ ), but there is no agreed per-drop set equivalent, hence the setting. Drops are left out of the within-session fatigue measure (D9).
+- **Set credit.** Every hard-set count (per workout, per muscle, per exercise, balance ratios, acute:chronic load) sums each set's credit: 0 when not hard, 1 for a working set, the drop credit for a drop. A muscle's weekly sets can be traced set by set (`muscleWeek`): the Muscles list expands per muscle and the muscle page shows "What counted" for the last 7 days or any picked week.
 - **Week:** ISO week (Mon–Sun) for bars. Rolling 7 days for "this week" cards.
 - **Volume load (VL)** = Σ `weightLb × reps` over sets. Workout totals use Motra's `tvlLb` when present.
 - **Muscle attribution:**

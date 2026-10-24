@@ -5,8 +5,8 @@ import { paths } from '../../router'
 import { Card } from '../../ui/components/Card'
 import { DataTable, type Column } from '../../ui/components/DataTable'
 import { formatDate, formatNumber, formatPercent, formatWeight, unitLabel } from '../../ui/format'
-import { formatHold, loadBasisTitle, PrChip } from '../../ui/widgets'
-import { describeLoadedSet, setChipText } from './util'
+import { formatHold, loadBasisTitle, PrChip, SetChip, SetChipLegend } from '../../ui/widgets'
+import { describeLoadedSet } from './util'
 
 /** Predicted loads within 2% of (or below) the actual best are not worth flagging. */
 const OPPORTUNITY_MARGIN = 1.02
@@ -98,13 +98,7 @@ function SetChips({ sets, units }: { sets: SessionSet[]; units: Units }) {
   return (
     <span class="set-chips">
       {shown.map((s, i) => (
-        <span
-          key={i}
-          class={s.hard ? 'set-chip' : 'set-chip set-chip--warmup'}
-          title={[setTitle(s, units), s.hard ? null : 'Warm-up: not counted as a hard set'].filter(Boolean).join(' · ') || undefined}
-        >
-          {setChipText(s, units)}
-        </span>
+        <SetChip key={i} set={s} units={units} title={setTitle(s, units)} />
       ))}
       {sets.length > shown.length && <span class="set-chip set-chip--more">+{sets.length - shown.length}</span>}
     </span>
@@ -188,8 +182,9 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
         </span>
       ) : null,
   })
+  const anyDrop = d.history.some((r) => r.sets.some((s) => s.drop))
   return (
-    <Card flush title="Session history" subtitle="Faded sets are warm-ups.">
+    <Card flush title="Session history">
       <DataTable
         columns={cols}
         rows={d.history}
@@ -200,6 +195,9 @@ export function HistoryCard({ d, units, detailed }: { d: ExerciseDetail; units: 
         empty="No sessions in this range."
         caption="Session history"
       />
+      <div class="history-legend">
+        <SetChipLegend drops={anyDrop} />
+      </div>
     </Card>
   )
 }

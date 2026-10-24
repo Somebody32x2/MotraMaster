@@ -315,12 +315,32 @@
 }
 
 .wo-tag {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--s2);
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
   color: var(--text-faint);
   white-space: nowrap;
+  cursor: help;
 }
 
 .wo-tag--hard {
   color: var(--text-muted);
+}
+
+.wo-tag--drop {
+  color: var(--accent);
+}
+
+/* Hard-set credit: right-aligned so a column of tags reads as a sum. */
+.wo-tag__credit {
+  min-width: 1.5em;
+  text-align: right;
+  color: var(--text);
+}
+
+.wo-tag:not(.wo-tag--hard):not(.wo-tag--drop) .wo-tag__credit {
+  color: var(--text-faint);
 }

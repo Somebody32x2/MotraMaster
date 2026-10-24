@@ -4,7 +4,7 @@ import type { Units } from '../../core/types'
 import { href, paths } from '../../router'
 import { DataTable, type Column } from '../../ui/components/DataTable'
 import { EMPTY, formatDuration, formatNumber, formatRest, formatWeight, plural } from '../../ui/format'
-import { formatHold, LoadBasisTag, PrChip, RegionChips } from '../../ui/widgets'
+import { formatHold, formatSetCredit, hardSetWhy, LoadBasisTag, PrChip, RegionChips, SET_TYPE_LABEL } from '../../ui/widgets'
 
 type Block = WorkoutDetail['blocks'][number]
 
@@ -103,10 +103,15 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
   }
   cols.push({
     id: 'type',
-    header: 'Type',
+    header: 'Counts',
     align: 'right',
-    title: 'Working sets count toward weekly volume; light warm-ups do not',
-    render: ({ set }) => <span class={set.hard ? 'wo-tag wo-tag--hard' : 'wo-tag'}>{set.hard ? 'Working' : 'Warm-up'}</span>,
+    title: 'Working sets count toward weekly sets; warm-ups and easy sets do not. Hover a set for the rule that decided it.',
+    render: ({ set }) => (
+      <span class={set.drop ? 'wo-tag wo-tag--drop' : set.hard ? 'wo-tag wo-tag--hard' : 'wo-tag'} title={hardSetWhy(set)}>
+        {SET_TYPE_LABEL[set.hardReason]}
+        <span class="wo-tag__credit num">{set.credit > 0 ? formatSetCredit(set.credit) : '0'}</span>
+      </span>
+    ),
   })
   return cols
 }
@@ -114,10 +119,10 @@ function setColumns(units: Units, isDetailed: boolean): Column<SetRow>[] {
 export function ExerciseBlock({ block, units, detailed: isDetailed }: { block: Block; units: Units; detailed: boolean }) {
   const headingId = useId()
   const rows = block.sets.map((set, i) => ({ set, n: i + 1 }))
-  const hard = block.sets.filter((s) => s.hard).length
+  const counted = block.sets.reduce((n, s) => n + s.credit, 0)
   const prTypes = [...new Set<PrType>(block.prs.map((p) => p.type))]
   const meta = [
-    `${plural(block.sets.length, 'set')}${hard !== block.sets.length ? ` (${formatNumber(hard, { maxDecimals: 0 })} working)` : ''}`,
+    `${plural(block.sets.length, 'set')}${counted !== block.sets.length ? ` (${formatSetCredit(counted)} counted)` : ''}`,
     block.volumeLb > 0 ? formatWeight(block.volumeLb, units) : null,
     block.bestE1rm != null ? `best e1RM ${formatWeight(block.bestE1rm, units)}` : null,
   ].filter(Boolean)

@@ -108,6 +108,8 @@ export type OneRmFormula = 'auto' | 'epley' | 'brzycki' | 'lombardi' | 'mayhew' 
 export type Sex = 'male' | 'female' | 'unspecified';
 /** Headline strength number per session: estimated 1RM, or the heaviest set actually lifted (any reps). */
 export type StrengthMetric = 'e1rm' | 'actual';
+/** Hard-set credit per detected drop: 0 = the drop set counts once (top set only), 0.5 = half a set per drop, 1 = a full set per drop. */
+export type DropSetCredit = 0 | 0.5 | 1;
 
 export interface Settings {
   units: Units;
@@ -126,6 +128,8 @@ export interface Settings {
   trimIdle: boolean;
   /** Minutes kept beyond the last set's active time when trimming (setup, cool-down). */
   trimGraceMin: number;
+  /** Hard-set credit for each drop of a drop set (the top set always counts as 1). */
+  dropSetCredit: DropSetCredit;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -140,4 +144,5 @@ export const DEFAULT_SETTINGS: Settings = {
   strengthMetric: 'e1rm',
   trimIdle: true,
   trimGraceMin: 5,
+  dropSetCredit: 0.5,
 };

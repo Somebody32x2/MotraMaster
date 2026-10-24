@@ -226,3 +226,75 @@ a.region-chip:hover {
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* ---------- Set chips: solid = counted as a hard set, outlined = not counted ---------- */
+.set-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.set-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+  cursor: default;
+}
+
+.set-chip--off {
+  background: transparent;
+  color: var(--text-faint);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.set-chip--more {
+  background: transparent;
+  color: var(--text-faint);
+}
+
+/* Drop marker: a small accent letter, like Motra's own 'D'. */
+.set-chip__drop {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.set-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.set-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.set-legend__sw {
+  width: 12px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--text) 8%, transparent);
+}
+
+.set-legend__sw--off {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}

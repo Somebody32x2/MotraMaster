@@ -1,8 +1,11 @@
+import { Fragment, type ComponentChildren } from 'preact'
+import { useState } from 'preact/hooks'
 import type { MuscleSummary, RegionId } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import { href, paths } from '../../router'
 import { InfoTip } from '../../ui/components/InfoTip'
 import { formatNumber, formatRelative, formatWeight } from '../../ui/format'
+import { IconChevronRight } from '../../ui/icons'
 import { VolumeBandBadge } from '../../ui/widgets'
 import { bandOf, FRACTIONAL_INFO, FREQUENCY_INFO, TARGET_HI, TARGET_LO, WEEKLY_SETS_INFO } from './bands'
 
@@ -15,6 +18,8 @@ export interface MuscleListProps {
   units: Units
   highlighted: RegionId | null
   onHighlight: (r: RegionId | null) => void
+  /** What made up a row's weekly sets, shown when the row is expanded. */
+  breakdown: (m: MuscleSummary) => ComponentChildren
 }
 
 /** Thin bar of weekly sets; the 10–20 band is marked by two faint ticks, with no track behind. */
@@ -30,7 +35,14 @@ export function SetsBar({ value, max }: { value: number; max: number }) {
   )
 }
 
-export function MuscleList({ rows, setsOf, fractional, detailed, units, highlighted, onHighlight }: MuscleListProps) {
+export function MuscleList({ rows, setsOf, fractional, detailed, units, highlighted, onHighlight, breakdown }: MuscleListProps) {
+  const [open, setOpen] = useState<ReadonlySet<RegionId>>(new Set())
+  const toggle = (r: RegionId) =>
+    setOpen((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(r)) next.add(r)
+      return next
+    })
   const max = Math.max(24, ...rows.map((r) => Math.ceil(setsOf(r))))
   return (
     <div class={detailed ? 'mlist mlist--detailed' : 'mlist'} role="table" aria-label="Muscles by weekly sets">
@@ -66,22 +78,35 @@ export function MuscleList({ rows, setsOf, fractional, detailed, units, highligh
       {rows.map((m) => {
         const sets = setsOf(m)
         const top = m.topExercises[0]
+        const expanded = open.has(m.region)
+        const panelId = `mlist-week-${m.region}`
         return (
+          <Fragment key={m.region}>
           <div
-            key={m.region}
             role="row"
-            class={highlighted === m.region ? 'mlist__row is-hot' : 'mlist__row'}
+            class={['mlist__row', highlighted === m.region && 'is-hot', expanded && 'is-open'].filter(Boolean).join(' ')}
             onMouseEnter={() => onHighlight(m.region)}
             onMouseLeave={() => onHighlight(null)}
             onFocusCapture={() => onHighlight(m.region)}
             onBlurCapture={() => onHighlight(null)}
           >
             <span role="cell" class="mlist__name">
+              <button
+                type="button"
+                class="mlist__caret"
+                aria-expanded={expanded}
+                aria-controls={panelId}
+                aria-label={`What counted for ${m.name}`}
+                title="What counted in the last 7 days"
+                onClick={() => toggle(m.region)}
+              >
+                <IconChevronRight size={12} />
+              </button>
               <a class="mlist__link" href={href(paths.muscle(m.region))}>
                 {m.name}
               </a>
             </span>
-            <span role="cell" class="mlist__sets">
+            <span role="cell" class="mlist__sets" onClick={() => toggle(m.region)}>
               <span class={sets > 0 ? 'mlist__sets-n num' : 'mlist__sets-n num faint'}>
                 {formatNumber(sets, { maxDecimals: 1 })}
               </span>
@@ -118,6 +143,12 @@ export function MuscleList({ rows, setsOf, fractional, detailed, units, highligh
               </span>
             )}
           </div>
+          {expanded && (
+            <div role="row" class="mlist__week" id={panelId}>
+              <div role="cell">{breakdown(m)}</div>
+            </div>
+          )}
+          </Fragment>
         )
       })}
     </div>

@@ -13,6 +13,7 @@ import { PageHeader } from '../ui/components/PageHeader'
 import { StatStrip } from '../ui/components/StatStrip'
 import { StatTile } from '../ui/components/StatTile'
 import { EMPTY, formatDate, formatDuration, formatNumber, formatPercent, formatRest, formatWeight, plural, unitLabel } from '../ui/format'
+import { HARD_SET_RULE } from '../ui/widgets'
 import { CardEmpty } from './overview/parts'
 import { HR_ZONES, isNum, median, sum } from './overview/util'
 import { ExerciseBlock } from './workouts/ExerciseBlock'
@@ -112,9 +113,9 @@ export default function WorkoutDetailPage({ workoutId }: { workoutId: string }) 
           />
           <StatTile
             label="Hard sets"
-            value={formatNumber(d.hardSets, { maxDecimals: 0 })}
+            value={formatNumber(d.hardSets, { maxDecimals: 1 })}
             sub={`of ${plural(d.sets, 'set')} logged`}
-            hint="Working sets only: effort 6+ when logged, otherwise at least 60% of that exercise’s top weight in the session."
+            hint={HARD_SET_RULE}
           />
           <StatTile label="Volume" value={formatWeight(d.volumeLb, units, { unit: false, compact: true })} unit={unitLabel(units)} sub="weight × reps" />
           <StatTile label="Exercises" value={formatNumber(d.exercises, { maxDecimals: 0 })} />

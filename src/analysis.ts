@@ -5,8 +5,8 @@ import { dataset, latestWorkoutDate, range, rangeStartDate, settings } from './s
 
 /**
  * Analysis derived from the dataset. Rebuilt only when the dataset or a setting
- * that changes the numbers (1RM formula, bodyweight, strength metric, idle trimming)
- * changes — not on theme/unit flips.
+ * that changes the numbers (1RM formula, bodyweight, strength metric, idle trimming,
+ * drop-set credit) changes — not on theme/unit flips.
  */
 const indexInputs = computed(() => ({
   ds: dataset.value,
@@ -15,6 +15,7 @@ const indexInputs = computed(() => ({
   strengthMetric: settings.value.strengthMetric,
   trimIdle: settings.value.trimIdle,
   trimGraceMin: settings.value.trimGraceMin,
+  dropSetCredit: settings.value.dropSetCredit,
 }))
 
 export const analysisIndex = computed<AnalysisIndex | null>(() => {

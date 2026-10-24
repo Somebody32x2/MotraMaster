@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'preact/hooks'
 import { analysisIndex, analysisWindow } from '../analysis'
-import { muscleSummaries } from '../core/analytics'
+import { muscleSummaries, muscleWeek } from '../core/analytics'
 import type { MuscleSummary, RegionId } from '../core/analytics/types'
 import { REGION_ORDER } from '../core/regions'
 import { navigate, paths } from '../router'
@@ -15,6 +15,7 @@ import { IconMuscles } from '../ui/icons'
 import { bandOf, FRACTIONAL_INFO } from './muscles/bands'
 import { MuscleList } from './muscles/MuscleList'
 import { UnmappedLabels } from './muscles/UnmappedLabels'
+import { WeekBreakdown } from './muscles/WeekBreakdown'
 import './muscles/muscles.css'
 
 type SortKey = 'sets' | 'anatomy' | 'recent'
@@ -87,6 +88,8 @@ export default function MusclesPage() {
   }
   const other = summaries.find((m) => m.region === 'other')
   const trained = summaries.some((m) => setsOf(m) > 0 || m.windowSets > 0)
+  // Same 7 days as weeklySets: the window end's day and the six before it.
+  const weekStart = new Date(win.end.getFullYear(), win.end.getMonth(), win.end.getDate() - 6)
 
   const summaryLine = trained
     ? [
@@ -145,6 +148,9 @@ export default function MusclesPage() {
               units={units}
               highlighted={hot}
               onHighlight={setHot}
+              breakdown={(m) => (
+                <WeekBreakdown week={muscleWeek(idx, m.region, weekStart, win.end)} units={units} secondary={fractional} />
+              )}
             />
           )}
         </Card>

@@ -51,10 +51,11 @@ function balance(ctx: Ctx, end: Date): BalanceRatios {
   let frontShoulders = 0;
   let rearShoulders = 0;
   for (const s of windowSets(ctx, spanStart(end, 56), end)) {
-    if (!s.hard) continue;
+    if (s.credit <= 0) continue;
     const rear = ctx.exercises.get(s.exerciseKey)?.rearShare ?? 0;
     for (const credit of [s.primary, s.secondary]) {
-      for (const [id, c] of Object.entries(credit) as [RegionId, number][]) {
+      for (const [id, share] of Object.entries(credit) as [RegionId, number][]) {
+        const c = share * s.credit;
         r[id] = (r[id] ?? 0) + c;
         if (id === 'shoulders') {
           rearShoulders += c * rear;
@@ -183,9 +184,9 @@ function computeOverview(idx: AnalysisIndex, ctx: Ctx, win: Window): OverviewSta
   let acute = 0;
   let chronic = 0;
   for (const s of windowSets(ctx, days28, end)) {
-    if (!s.hard) continue;
-    chronic++;
-    if (s.date >= week7) acute++;
+    if (s.credit <= 0) continue;
+    chronic += s.credit;
+    if (s.date >= week7) acute += s.credit;
   }
   const enoughHistory = ctx.firstDate !== null && dayDiff(ctx.firstDate, end) >= 27;
   const loadRatio = enoughHistory && chronic > 0 ? acute / (chronic / 4) : null;

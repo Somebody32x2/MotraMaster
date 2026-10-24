@@ -1,12 +1,12 @@
 /** buildIndex: enrich every set once per dataset + settings (research §3.3, §4.1). */
 import { displayLabel } from '../labels.ts';
 import { catalogLookup, deltHeadOf, REGION_ORDER, resolveMuscle, type CatalogEntry } from '../regions.ts';
-import type { Dataset, Settings, Workout } from '../types.ts';
+import type { Dataset, SetRecord, Settings, Workout } from '../types.ts';
 import { attachCtx, type Ctx, type ExerciseCtx, type Session, type WorkoutAgg } from './context.ts';
 import { estimateE1rm } from './e1rm.ts';
 import { effectiveLoad, exerciseLoadModel, type LoadSetInput } from './load.ts';
 import { detectPrs } from './prs.ts';
-import type { AnalysisIndex, EnrichedSet, ExerciseLoadModel, PrEvent, RegionId, SessionE1rm, SessionStrength, StrengthMetric } from './types.ts';
+import type { AnalysisIndex, EnrichedSet, ExerciseLoadModel, HardReason, PrEvent, RegionId, SessionE1rm, SessionStrength, StrengthMetric } from './types.ts';
 import { DAY_MS, num, parseLocalIso } from './util.ts';
 
 type Credit = Partial<Record<RegionId, number>>;
@@ -14,6 +14,23 @@ type Credit = Partial<Record<RegionId, number>>;
 const UNDATED = new Date(0);
 const PRIMARY_MIN = 8;
 const SECONDARY_MIN = 6;
+/** Drop-set detection (research §4.1): at most this much rest before a lighter set of the same exercise… */
+const DROP_REST_MAX_SEC = 30;
+/** …which sheds at least this share of the previous set's load. */
+const DROP_MIN_CUT = 0.05;
+const COUNTS: Record<HardReason, boolean> = {
+  effort: true, load: true, bodyweight: true, hold: true, drop: true,
+  easy: false, light: false, shortHold: false, notPerformed: false,
+};
+
+/** A drop set marked by hand: "drop set" in the note, or a set-type column reading D / Drop / Drop set. */
+function markedDrop(s: SetRecord): boolean {
+  if (s.note && /\bdrop[ -]?set\b/i.test(s.note)) return true;
+  for (const [header, v] of Object.entries(s.extra ?? {})) {
+    if (/type/i.test(header) && typeof v === 'string' && /^\s*(d|drop([ -]?set)?)\s*$/i.test(v)) return true;
+  }
+  return false;
+}
 
 /** Each listed muscle gets full credit (capped at 1 per region); group labels split. */
 function primaryCredit(muscleKeys: string[], cat: CatalogEntry | null): Credit {
@@ -127,6 +144,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
   const trim = { enabled: settings.trimIdle !== false, graceSec: Math.max(0, grace ?? 5) * 60 };
   const catCache = new Map<string, CatalogEntry | null>();
   const bw = num(settings.bodyweightLb);
+  const dropCredit = settings.dropSetCredit === 0 || settings.dropSetCredit === 1 ? settings.dropSetCredit : 0.5;
   // Classify each exercise once from its name and all of its sets.
   const loadInputs = new Map<string, LoadSetInput[]>();
   for (const w of ds.workouts) {
@@ -154,6 +172,9 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     });
     const list: EnrichedSet[] = [];
     let prevKey: string | null = null;
+    let prev: EnrichedSet | null = null;
+    // Workouts logged without timing report 0 rest everywhere; rest says nothing about drops then.
+    const restKnown = ordered.some((s) => (num(s.restSec) ?? 0) > 0);
     for (const [i, s] of ordered.entries()) {
       let cat = catCache.get(s.exerciseKey);
       if (cat === undefined) {
@@ -165,17 +186,30 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
       const weightLb = num(s.weightLb);
       const reps = num(s.reps);
       const durationSec = num(s.durationSec);
+      const restSec = num(s.restSec);
       const effort = num(s.effort);
       const cardio = (num(s.distanceFt) ?? 0) > 0 && !(reps !== null && reps > 0);
       const performed = !cardio && ((reps !== null && reps >= 1) || (durationSec !== null && durationSec > 0));
       const holdSec = model.kind === 'timed' && !cardio && durationSec !== null && durationSec > 0 ? durationSec : null;
-      let hard = false;
-      if (performed) {
-        if (effort !== null) hard = effort >= 6;
-        else if (model.kind === 'timed') hard = holdSec !== null && holdSec >= 10;
-        else if (loadLb !== null && loadLb > 0) hard = loadLb >= 0.6 * (maxLoad.get(s.exerciseKey) ?? loadLb);
-        else hard = true;
+      const top = maxLoad.get(s.exerciseKey) ?? null;
+
+      let drop = false;
+      if (performed && model.kind !== 'timed' && prev && s.exerciseKey === prevKey && prev.hardReason !== 'notPerformed') {
+        const before = prev.loadLb ?? prev.weightLb;
+        const now = loadLb ?? weightLb;
+        const lighter = before !== null && now !== null && before > 0 && now <= before * (1 - DROP_MIN_CUT);
+        drop = markedDrop(s) || (lighter && restKnown && restSec !== null && restSec <= DROP_REST_MAX_SEC);
       }
+      let hardReason: HardReason;
+      if (!performed) hardReason = 'notPerformed';
+      else if (effort !== null && effort < 6) hardReason = 'easy';
+      else if (drop) hardReason = 'drop';
+      else if (effort !== null) hardReason = 'effort';
+      else if (model.kind === 'timed') hardReason = holdSec !== null && holdSec >= 10 ? 'hold' : 'shortHold';
+      else if (loadLb !== null && loadLb > 0) hardReason = loadLb >= 0.6 * (top ?? loadLb) ? 'load' : 'light';
+      else hardReason = 'bodyweight';
+      const hard = COUNTS[hardReason];
+
       const primary = primaryCredit(s.muscleKeys ?? [], cat);
       const es: EnrichedSet = {
         setId: s.id,
@@ -185,11 +219,15 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
         weightLb,
         reps,
         durationSec,
-        restSec: num(s.restSec),
+        restSec,
         effort,
         primary,
         secondary: secondaryCredit(cat, primary),
         hard,
+        hardReason,
+        credit: !hard ? 0 : drop ? dropCredit : 1,
+        drop,
+        pctOfTop: loadLb !== null && loadLb > 0 && top !== null && top > 0 ? loadLb / top : null,
         firstOfBlock: s.exerciseKey !== prevKey,
         volumeLb: loadLb !== null && reps !== null && loadLb > 0 && reps > 0 ? loadLb * reps : 0,
         e1rm: cardio || model.kind === 'timed' || loadLb === null || reps === null ? null : estimateE1rm(loadLb, reps, effort, formula),
@@ -198,6 +236,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
         holdSec,
       };
       prevKey = s.exerciseKey;
+      prev = es;
       list.push(es);
       if (date) sets.push(es);
     }
@@ -206,9 +245,9 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     let volume = 0;
     for (const s of list) {
       volume += s.volumeLb;
-      if (!s.hard) continue;
-      hardSets++;
-      for (const [id, c] of Object.entries(s.primary) as [RegionId, number][]) regionHard[id] = (regionHard[id] ?? 0) + c;
+      if (s.credit <= 0) continue;
+      hardSets += s.credit;
+      for (const [id, c] of Object.entries(s.primary) as [RegionId, number][]) regionHard[id] = (regionHard[id] ?? 0) + c * s.credit;
     }
     const tvl = num(w.tvlLb);
     workouts.set(w.id, {
@@ -316,7 +355,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
 
   const regionTimes = new Map<RegionId, number[]>();
   for (const s of sets) {
-    if (!s.hard) continue;
+    if (s.credit <= 0) continue;
     for (const id of Object.keys(s.primary) as RegionId[]) {
       let arr = regionTimes.get(id);
       if (!arr) regionTimes.set(id, (arr = []));
@@ -344,6 +383,7 @@ export function buildIndex(ds: Dataset, settings: Settings): AnalysisIndex {
     bodyweightLb: num(settings.bodyweightLb),
     strengthMetric: metric,
     trim,
+    dropSetCredit: dropCredit,
   };
   const ctx: Ctx = {
     ds,

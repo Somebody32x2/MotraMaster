@@ -8,6 +8,7 @@ import { PageHeader } from '../ui/components/PageHeader'
 import { StatStrip } from '../ui/components/StatStrip'
 import { StatTile } from '../ui/components/StatTile'
 import { formatDuration, formatNumber, formatWeight, plural, unitLabel } from '../ui/format'
+import { HARD_SET_RULE } from '../ui/widgets'
 import { activeRange, mean } from './overview/util'
 import { WorkoutTable } from './workouts/WorkoutTable'
 
@@ -56,7 +57,7 @@ export default function WorkoutsPage() {
             label="Avg hard sets"
             value={formatNumber(avgHard, { maxDecimals: 1 })}
             sub="per session"
-            hint="Working sets only: effort 6+ when logged, otherwise at least 60% of that exercise’s top weight in the session."
+            hint={HARD_SET_RULE}
           />
           <StatTile label="Avg volume" value={formatWeight(avgVolume, units, { unit: false, compact: true })} unit={unitLabel(units)} sub="per session" />
           {isDetailed && (

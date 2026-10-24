@@ -78,10 +78,76 @@
 }
 
 .mlist__name {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin-left: -6px;
+  white-space: nowrap;
+}
+
+.mlist__name .mlist__link {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+/* Disclosure for "what counted": quiet until the row is hovered, focused or open. */
+.mlist__caret {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 150ms var(--ease), background-color 150ms var(--ease);
+}
+
+.mlist__caret svg {
+  transition: transform 200ms var(--ease);
+}
+
+.mlist__caret[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.mlist__caret:hover,
+.mlist__caret[aria-expanded='true'] {
+  color: var(--text);
+}
+
+.mlist__caret:hover {
+  background: color-mix(in oklab, var(--text) 7%, transparent);
+}
+
+.mlist__caret:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.mlist__head > span:first-child {
+  padding-left: 16px;
+}
+
+.mlist__row.is-open {
+  border-bottom-color: transparent;
+}
+
+.mlist__week {
+  padding: var(--s1) 8px var(--s4);
+  border-bottom: 1px solid var(--grid);
+}
+
+@media (max-width: 719px) {
+  .mlist__week {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 
 .mlist__link {
@@ -100,6 +166,7 @@
   align-items: center;
   gap: var(--s3);
   min-width: 0;
+  cursor: pointer;
 }
 
 .mlist__sets-n {
@@ -337,4 +404,136 @@
   text-align: right;
   font-size: var(--fs-xs);
   color: var(--text-muted);
+}
+
+/* ---------- What counted: exercise rows with their sets ---------- */
+.wk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.wk__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Name | (count, sessions). Inside the muscle list the columns follow the list's own, so
+   exercise counts sit under the muscle's count and the chips start where its bar does. */
+.wk__ex {
+  display: grid;
+  grid-template-columns: var(--wk-cols, minmax(140px, 15rem) minmax(0, 1fr));
+  gap: var(--s3);
+  align-items: start;
+  padding: 6px 0;
+  border-top: 1px solid var(--grid);
+}
+
+.wk__body {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.wk__ex:first-child {
+  border-top: 0;
+}
+
+.wk__name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--text);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk__name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wk__sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wk__sess {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+}
+
+.wk__day {
+  flex: 0 0 3.2ch;
+  font-size: var(--fs-xs);
+  line-height: 20px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.wk__day:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wk__count {
+  flex: 0 0 4ch;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 20px;
+  text-align: right;
+}
+
+.wk__group {
+  margin: var(--s1) 0 -4px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.wk__empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.mlist__week .wk {
+  --wk-cols: var(--mlist-cols);
+}
+
+.mlist__week .wk__name,
+.mlist__week .wk__group,
+.mlist__week .set-legend {
+  padding-left: 16px;
+}
+
+/* Phones: name and count share a line, the sessions run full width beneath. */
+@media (max-width: 639px) {
+  .wk__ex,
+  .mlist__week .wk__ex {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px var(--s3);
+  }
+  .wk__body {
+    display: contents;
+  }
+  .wk__sessions {
+    grid-column: 1 / -1;
+  }
+  .mlist__week .wk__name,
+  .mlist__week .wk__group,
+  .mlist__week .set-legend {
+    padding-left: 0;
+  }
 }

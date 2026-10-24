@@ -1,4 +1,4 @@
-import type { AnalysisIndex, ExerciseSessionRow, LoadBasis, SeriesPoint, Window } from '../../core/analytics/types'
+import type { AnalysisIndex, LoadBasis, SeriesPoint, Window } from '../../core/analytics/types'
 import type { Units } from '../../core/types'
 import type { LinePoint } from '../../ui/charts'
 import { formatNumber, formatWeight, toDisplayWeight, unitLabel } from '../../ui/format'
@@ -94,29 +94,6 @@ export function describeLoadedSet(
   const w = set.loadLb ?? set.weightLb
   if (w != null && w > 0) return `${formatWeight(w, units)}${reps}`
   return reps ? `${formatNumber(set.reps, { maxDecimals: 0 })} reps` : '–'
-}
-
-/** Compact chip text: '185×5', 'BW+25×8', 'BW×10', 'BW−40×8', '1:30 hold', '1:00 +25 lb', '12 reps'. */
-export function setChipText(set: ExerciseSessionRow['sets'][number], units: Units): string {
-  const reps = set.reps != null && set.reps > 0 ? formatNumber(set.reps, { maxDecimals: 0 }) : null
-  if (set.holdSec != null && set.holdSec > 0) {
-    const w = set.loadLb ?? set.weightLb
-    return w != null && w > 0 ? `${formatHold(set.holdSec)} +${formatWeight(w, units)}` : `${formatHold(set.holdSec)} hold`
-  }
-  const w = set.weightLb != null && Number.isFinite(set.weightLb) ? set.weightLb : 0
-  const num = (n: number) => formatWeight(n, units, { unit: false })
-  switch (set.loadBasis) {
-    case 'bodyweightAdded':
-      return `BW${w > 0 ? `+${num(w)}` : w < 0 ? `−${num(-w)}` : ''}×${reps ?? '0'}`
-    case 'assisted':
-      return `BW−${num(Math.abs(w))}×${reps ?? '0'}`
-    default:
-      break
-  }
-  if (w > 0) return `${num(w)}×${reps ?? '0'}`
-  if (reps) return `${reps} reps`
-  if (set.durationSec != null && set.durationSec > 0) return formatHold(set.durationSec)
-  return '–'
 }
 
 /** Axis formatter for hold seconds: '45s', '1:30'. */

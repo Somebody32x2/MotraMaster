@@ -18,3 +18,4 @@ export {
   type ValueUnit,
 } from './StrengthMetric'
 export { LoadBasisTag, loadBasisText, loadBasisTitle, BwBadge, isBodyweightKind } from './LoadBasisTag'
+export { SetChip, SetChipLegend, SET_TYPE_LABEL, HARD_SET_RULE, formatSetCredit, hardSetWhy, setChipText, type ChipSet } from './SetChip'

@@ -20,7 +20,7 @@ import { StatStrip } from '../../ui/components/StatStrip'
 import { StatTile } from '../../ui/components/StatTile'
 import { formatDate, formatDuration, formatNumber, formatWeight, plural, toDisplayWeight, unitLabel } from '../../ui/format'
 import { settings } from '../../state'
-import { BwBadge, formatStrength, formatUnitValue, PrList, TrendBadge } from '../../ui/widgets'
+import { BwBadge, formatStrength, formatUnitValue, HARD_SET_RULE, PrList, TrendBadge } from '../../ui/widgets'
 import { CardEmpty } from './parts'
 import { StrengthLiftList } from './RelativeStrength'
 import { BAND_COLOR, activeRange, bandOf, dayKey, isNum, mean, pctDelta, sum } from './util'
@@ -115,7 +115,7 @@ export function OverviewStrip({ stats, units, detailed }: { stats: OverviewStats
         value={formatNumber(hardPer, { maxDecimals: 1 })}
         delta={prev ? pctDelta(hardPer, per(prev.hardSets, prev.workouts)) : null}
         deltaLabel={deltaLabel}
-        hint="Working sets only: effort 6+ when logged, otherwise at least 60% of that exercise’s top weight in the session. Warm-ups are excluded."
+        hint={HARD_SET_RULE}
       />
       <StatTile
         label="Volume per workout"

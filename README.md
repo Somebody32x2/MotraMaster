@@ -28,7 +28,7 @@ estimated DOTS / IPF GL scores and BMI. They are only stored locally.
 | Page | Normal | Detailed adds |
 |---|---|---|
 | Overview | KPIs vs previous period, consistency streaks and calendar, weekly volume, weekly sets per muscle on a body map, top lifts with e1RM trend, recent PRs, muscle frequency, relative strength | Balance ratios (push:pull, quad:ham, upper:lower, anterior:posterior), intensity zones and rep ranges, rest distribution, session density, heart-rate zones, effort, acute:chronic load, new exercises, DOTS/GL |
-| Muscles | Body map and ranking by weekly hard sets against the 10–20 set range | Fractional sets (secondary muscles at half credit), 4-week averages, unmapped labels |
+| Muscles | Body map and ranking by weekly hard sets against the 10–20 set range; expand a muscle, or open it and pick a week, to see every set that counted | Fractional sets (secondary muscles at half credit), 4-week averages, unmapped labels |
 | Exercise | Estimated 1RM with trend and PR envelope, rep-max predictor, PRs, session history | All 1RM formulas side by side, 30/90/365-day change, rest, tempo, fatigue drop-off, intensity, strength level |
 | Workout | Per-exercise set tables, muscles worked | Per-set e1RM, heart-rate zones, rest timeline |
 
@@ -41,7 +41,12 @@ The definitions, formulas and sources behind every number are in
   added first. Trends use a 21-day EWMA and a Theil–Sen slope in %/month.
 - **Hard sets:** the export has no warm-up flag, so a set counts when its
   effort is ≥ 6, or (without effort) its weight is at least 60% of that
-  exercise's top set in the session.
+  exercise's top set in the session. Solid set chips counted, outlined ones
+  did not; hover a set for the rule that decided it.
+- **Drop sets:** a set at least 5% lighter than the one before, of the same
+  exercise, after ≤ 30 s rest (or with "drop set" in its note) is a drop. It
+  counts even below 60%; each drop adds half a set by default (Settings:
+  once, ½ or 1 per drop).
 - **Muscles:** each primary muscle in a set gets full credit. In Detailed mode,
   muscles that Motra's exercise library rates 6–7 out of 10 get half credit.
 

@@ -2,7 +2,7 @@
 import { isRegionId, REGION_ORDER, REGIONS, regionName } from '../regions.ts';
 import { getCtx, memo, windowSets, windowWorkouts, type Ctx } from './context.ts';
 import { exerciseSummaries } from './exercises.ts';
-import type { AnalysisIndex, EnrichedSet, MuscleDetail, MuscleSummary, RegionId, SeriesPoint, VolumeBand, Window } from './types.ts';
+import type { AnalysisIndex, CountedSet, EnrichedSet, MuscleDetail, MuscleSummary, MuscleWeek, MuscleWeekExercise, RegionId, SeriesPoint, VolumeBand, Window } from './types.ts';
 import { addDays, dayKey, spanStart, startOfWeek, upperBound } from './util.ts';
 
 /** Research §2.1 / §4.2 bands: 0 · < 5 · 5–9 · 10–20 · > 20 weekly sets. */
@@ -45,25 +45,25 @@ function computeSummaries(ctx: Ctx, win: Window, everyRegion = false): MuscleSum
     for (const [id, c] of Object.entries(s.primary) as [RegionId, number][]) {
       const a = get(id);
       a.volumeLb += volumeShare(s, id);
-      if (!s.hard) continue;
-      a.windowSets += c;
-      a.exercises.set(s.exerciseKey, (a.exercises.get(s.exerciseKey) ?? 0) + 1);
+      if (s.credit <= 0) continue;
+      a.windowSets += c * s.credit;
+      a.exercises.set(s.exerciseKey, (a.exercises.get(s.exerciseKey) ?? 0) + s.credit);
     }
   }
   const week = spanStart(win.end, 7).getTime();
   for (const s of windowSets(ctx, spanStart(win.end, 28), win.end)) {
-    if (!s.hard) continue;
+    if (s.credit <= 0) continue;
     const recent = s.date.getTime() >= week;
     for (const [id, c] of Object.entries(s.primary) as [RegionId, number][]) {
       const a = get(id);
-      a.sets4w += c;
+      a.sets4w += c * s.credit;
       a.days4w.add(dayKey(s.date));
       if (recent) {
-        a.weekly += c;
-        a.weeklyFrac += c;
+        a.weekly += c * s.credit;
+        a.weeklyFrac += c * s.credit;
       }
     }
-    if (recent) for (const [id, c] of Object.entries(s.secondary) as [RegionId, number][]) get(id).weeklyFrac += c;
+    if (recent) for (const [id, c] of Object.entries(s.secondary) as [RegionId, number][]) get(id).weeklyFrac += c * s.credit;
   }
 
   const out: MuscleSummary[] = [];
@@ -113,6 +113,40 @@ export function weekStarts(ctx: Ctx, win: Window): Date[] {
   return out;
 }
 
+/**
+ * Every set of every exercise that credits `region` over [start, end], with what each
+ * set added (warm-ups included at 0), so a week's count can be traced set by set.
+ */
+export function muscleWeek(idx: AnalysisIndex, region: RegionId, start: Date, end: Date): MuscleWeek {
+  const ctx = getCtx(idx);
+  const byKey = new Map<string, MuscleWeekExercise>();
+  let sets = 0;
+  let fractional = 0;
+  for (const s of windowSets(ctx, start, end)) {
+    const direct = s.primary[region] ?? 0;
+    const secondary = s.secondary[region] ?? 0;
+    if (direct <= 0 && secondary <= 0) continue;
+    const credit = (direct + secondary) * s.credit;
+    if (direct > 0) sets += credit;
+    fractional += credit;
+    let ex = byKey.get(s.exerciseKey);
+    if (!ex) {
+      ex = { key: s.exerciseKey, name: ctx.exercises.get(s.exerciseKey)?.name ?? s.exerciseKey, role: 'secondary', sets: 0, sessions: [] };
+      byKey.set(s.exerciseKey, ex);
+    }
+    if (direct > 0) ex.role = 'direct';
+    ex.sets += credit;
+    const last = ex.sessions[ex.sessions.length - 1];
+    const counted: CountedSet = { set: s, credit };
+    if (last && last.workoutId === s.workoutId) last.sets.push(counted);
+    else ex.sessions.push({ workoutId: s.workoutId, date: s.date, sets: [counted] });
+  }
+  const exercises = [...byKey.values()].sort(
+    (a, b) => (a.role === b.role ? 0 : a.role === 'direct' ? -1 : 1) || b.sets - a.sets || a.name.localeCompare(b.name),
+  );
+  return { region, start, end, sets, fractional, exercises };
+}
+
 export function muscleDetail(idx: AnalysisIndex, region: RegionId, win: Window): MuscleDetail | null {
   if (!isRegionId(region)) return null;
   const ctx = getCtx(idx);
@@ -129,9 +163,9 @@ export function muscleDetail(idx: AnalysisIndex, region: RegionId, win: Window):
     if (!row) continue;
     const direct = s.primary[region] ?? 0;
     row.volumeLb += volumeShare(s, region);
-    if (!s.hard) continue;
-    row.sets += direct;
-    row.fractional += direct + (s.secondary[region] ?? 0);
+    if (s.credit <= 0) continue;
+    row.sets += direct * s.credit;
+    row.fractional += (direct + (s.secondary[region] ?? 0)) * s.credit;
   }
 
   // Exercises that credit this region directly on at least half their sets.

@@ -139,6 +139,7 @@ export function loadSettings(): Settings {
       typeof r.trimGraceMin === 'number' && Number.isFinite(r.trimGraceMin)
         ? Math.min(60, Math.max(0, r.trimGraceMin))
         : d.trimGraceMin,
+    dropSetCredit: r.dropSetCredit === 0 || r.dropSetCredit === 0.5 || r.dropSetCredit === 1 ? r.dropSetCredit : d.dropSetCredit,
   };
 }
 

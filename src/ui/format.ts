@@ -133,7 +133,7 @@ export function parseLocalIso(iso: string): Date {
   return new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0, m[6] ? +m[6] : 0)
 }
 
-export type DateStyle = 'short' | 'medium' | 'long' | 'weekday' | 'month' | 'time' | 'datetime' | 'day'
+export type DateStyle = 'short' | 'medium' | 'long' | 'weekday' | 'dow' | 'month' | 'time' | 'datetime' | 'day'
 
 const DATE_OPTS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   /** Oct 21 */
@@ -144,6 +144,8 @@ const DATE_OPTS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   long: { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
   /** Wed, Oct 21 */
   weekday: { weekday: 'short', month: 'short', day: 'numeric' },
+  /** Wed */
+  dow: { weekday: 'short' },
   /** Oct 2026 */
   month: { month: 'short', year: 'numeric' },
   /** 1:04 PM */

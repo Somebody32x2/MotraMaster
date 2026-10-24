@@ -13,7 +13,7 @@ export const TARGET_LO = 10
 export const TARGET_HI = 20
 
 export const WEEKLY_SETS_INFO =
-  'Hard sets in the 7 days ending at the latest workout in range. 10–20 weekly sets is the typical hypertrophy range (Schoenfeld 2017); it is a guide, not a prescription.'
+  'Hard sets in the 7 days ending at the latest workout in range; open a muscle to see each set that counted. 10–20 weekly sets is the typical hypertrophy range (Schoenfeld 2017); it is a guide, not a prescription.'
 
 export const FREQUENCY_INFO =
   'Days per week with at least one hard set, averaged over 4 weeks. Frequency matters little for size once volume is equal, but helps strength (Pelland 2026).'

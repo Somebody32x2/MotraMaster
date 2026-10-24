@@ -50,6 +50,15 @@ export type ExerciseKind = 'weighted' | 'bodyweight' | 'timed';
  */
 export type LoadBasis = 'external' | 'bodyweightAdded' | 'bodyweightIncluded' | 'assisted' | 'bodyweightUnknown' | 'none';
 
+/**
+ * Rule that decided whether a set is hard (research §4.1):
+ * effort / easy = logged effort ≥ 6 / < 6; load / light = at least / under 60% of the
+ * exercise's top load in the workout; bodyweight = reps without a load to compare;
+ * hold / shortHold = timed hold ≥ 10 s / shorter; drop = detected drop set;
+ * notPerformed = no reps or time (or a distance-only cardio row).
+ */
+export type HardReason = 'effort' | 'easy' | 'load' | 'light' | 'bodyweight' | 'hold' | 'shortHold' | 'drop' | 'notPerformed';
+
 export interface ExerciseLoadModel {
   kind: ExerciseKind;
   /** Share of bodyweight moved (dips/pull-ups 1, push-ups ≈ 0.64); null when bodyweight isn't counted as load. */
@@ -82,8 +91,16 @@ export interface EnrichedSet {
   primary: Partial<Record<RegionId, number>>;
   /** Secondary credit from the bundled Motra catalog (0.5 for catalog weight 6–7); empty when exercise unknown. */
   secondary: Partial<Record<RegionId, number>>;
-  /** Working-set heuristic (research §4.1). */
+  /** Working-set heuristic (research §4.1): taken with real effort. False for warm-ups and unperformed rows. */
   hard: boolean;
+  /** Which rule decided `hard`. */
+  hardReason: HardReason;
+  /** Hard sets this set adds to every count: 0 when not hard, 1 for a working set, the drop-set setting for a drop. */
+  credit: number;
+  /** Detected drop: a lighter set of the same exercise straight after the previous one (research §4.1). */
+  drop: boolean;
+  /** Effective load ÷ the exercise's heaviest load in this workout; null without a load. */
+  pctOfTop: number | null;
   /** First set of an exercise block within the workout (its rest includes changeover). */
   firstOfBlock: boolean;
   /** Effective load × reps (0 when either is missing). */
@@ -207,7 +224,7 @@ export interface RepMaxRow {
 export interface ExerciseSessionRow {
   workoutId: string;
   date: Date;
-  sets: { weightLb: number | null; loadLb: number | null; loadBasis: LoadBasis; reps: number | null; e1rm: number | null; hard: boolean; restSec: number | null; durationSec: number | null; holdSec: number | null }[];
+  sets: { weightLb: number | null; loadLb: number | null; loadBasis: LoadBasis; reps: number | null; e1rm: number | null; hard: boolean; hardReason: HardReason; credit: number; drop: boolean; pctOfTop: number | null; effort: number | null; restSec: number | null; durationSec: number | null; holdSec: number | null }[];
   volumeLb: number;
   bestE1rm: number | null;
   topWeightLb: number | null;
@@ -280,6 +297,37 @@ export interface MuscleDetail extends MuscleSummary {
   recentPrs: PrEvent[];
   /** Muscles most often trained in the same session (co-occurrence share 0..1). */
   pairedWith: { region: RegionId; share: number }[];
+}
+
+/** A set as it counts toward one muscle: `credit` = set credit × the muscle's share (0 when not counted). */
+export interface CountedSet {
+  set: EnrichedSet;
+  credit: number;
+}
+
+/** One exercise's contribution to a muscle over a span. */
+export interface MuscleWeekExercise {
+  key: string;
+  name: string;
+  /** 'direct' = the muscle is a primary mover; 'secondary' = catalog secondary at half credit. */
+  role: 'direct' | 'secondary';
+  /** Σ credit over the sets below. */
+  sets: number;
+  /** Workouts in date order, each with every logged set of this exercise (warm-ups included, at 0). */
+  sessions: { workoutId: string; date: Date; sets: CountedSet[] }[];
+}
+
+/** What made up a muscle's set count over [start, end]. */
+export interface MuscleWeek {
+  region: RegionId;
+  start: Date;
+  end: Date;
+  /** Direct hard sets; equals MuscleSummary.weeklySets for the trailing 7 days. */
+  sets: number;
+  /** Direct + secondary; equals MuscleSummary.weeklyFractional for the trailing 7 days. */
+  fractional: number;
+  /** Direct contributors first, each group by credit (most first). */
+  exercises: MuscleWeekExercise[];
 }
 
 export interface BalanceRatios {
@@ -406,6 +454,8 @@ export interface AnalysisIndex {
   strengthMetric: StrengthMetric;
   /** Idle trimming in effect; graceSec = trimGraceMin × 60. */
   trim: { enabled: boolean; graceSec: number };
+  /** Hard-set credit per drop (Settings.dropSetCredit). */
+  dropSetCredit: number;
 }
 
 /** Per-day metrics the calendar can color by. All per-day values sum/average over that day's workouts. */

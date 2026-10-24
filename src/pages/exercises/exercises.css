@@ -223,36 +223,8 @@
   list-style: none;
 }
 
-.set-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.set-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--text);
-}
-
-.set-chip--warmup {
-  background: transparent;
-  color: var(--text-faint);
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-
-.set-chip--more {
-  background: transparent;
-  color: var(--text-faint);
+.history-legend {
+  margin-top: var(--s3);
 }
 
 .pr-chips {

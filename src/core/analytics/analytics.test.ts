@@ -12,6 +12,7 @@ import {
   exerciseSummaries,
   muscleDetail,
   muscleSummaries,
+  muscleWeek,
   oneRmFormulas,
   overviewStats,
   strengthProfile,
@@ -31,6 +32,7 @@ interface SetSpec {
   effort?: number | null;
   rest?: number | null;
   dur?: number | null;
+  note?: string;
 }
 
 function workout(id: string, start: string, specs: SetSpec[], extra: Partial<Workout> = {}): Workout {
@@ -49,7 +51,7 @@ function workout(id: string, start: string, specs: SetSpec[], extra: Partial<Wor
     effortRaw: s.effort == null ? null : String(s.effort),
     muscleKeys: (s.muscles ?? ['chest']).map(normalizeKey),
     muscleRaw: (s.muscles ?? ['chest']).join(', '),
-    note: null,
+    note: s.note ?? null,
     extra: {},
   }));
   return {
@@ -211,6 +213,55 @@ describe('muscle volume', () => {
     expect(muscles.has('calves')).toBe(true);
     expect(muscles.has('other')).toBe(false);
     expect(muscleDetail(idx, 'chest', win)!.exercises.map((e) => e.key)).toEqual(['barbell bench press']);
+  });
+});
+
+describe('drop sets', () => {
+  const fly = (w: number, rest: number, extra: Partial<SetSpec> = {}): SetSpec => ({ ex: 'Machine Fly', w, r: 8, rest, ...extra });
+  const bench = (w: number, rest: number): SetSpec => ({ ex: 'Barbell Bench Press', w, r: 6, rest });
+  // Three straight sets then two quick drops (the last below 60% of the top set), then a
+  // bench ramp-up and a slower back-off set that is not a drop.
+  const sets: SetSpec[] = [fly(100, 0), fly(100, 120), fly(100, 120), fly(70, 10), fly(50, 8), bench(60, 150), bench(135, 120), bench(115, 150)];
+  const day = '2026-03-02T18:00:00';
+  const win: Window = { start: new Date(2026, 2, 1), end: new Date(2026, 2, 2, 23, 59, 59, 999) };
+  const build = (specs: SetSpec[], settings: Settings = DEFAULT_SETTINGS) => buildIndex(dataset([workout('a', day, specs)]), settings);
+  const chestSets = (settings: Settings) => muscleSummaries(build(sets, settings), win).find((m) => m.region === 'chest')!.weeklySets;
+
+  it('flags quick lighter sets of the same exercise and counts them even below 60% of the top set', () => {
+    const idx = build(sets);
+    expect(idx.sets.map((s) => s.drop)).toEqual([false, false, false, true, true, false, false, false]);
+    expect(idx.sets.map((s) => s.hardReason)).toEqual(['load', 'load', 'load', 'drop', 'drop', 'light', 'load', 'load']);
+    expect(idx.sets.map((s) => s.credit)).toEqual([1, 1, 1, 0.5, 0.5, 0, 1, 1]);
+    expect(workoutSummaries(idx, win)[0].hardSets).toBe(6);
+  });
+
+  it('credits each drop per the setting', () => {
+    expect(chestSets({ ...DEFAULT_SETTINGS, dropSetCredit: 0 })).toBe(5);
+    expect(chestSets(DEFAULT_SETTINGS)).toBe(6);
+    expect(chestSets({ ...DEFAULT_SETTINGS, dropSetCredit: 1 })).toBe(7);
+  });
+
+  it('needs rest data unless the set is marked, and respects a low logged effort', () => {
+    const untimed = build(sets.map((s) => ({ ...s, rest: 0 })));
+    expect(untimed.sets.some((s) => s.drop)).toBe(false);
+    expect(untimed.sets[4].hardReason).toBe('light');
+    const marked = build([fly(100, 0), fly(60, 90, { note: 'Drop set' })]);
+    expect(marked.sets[1]).toMatchObject({ drop: true, hardReason: 'drop', credit: 0.5 });
+    const easy = build([fly(100, 0), fly(70, 10, { effort: 4 })]);
+    expect(easy.sets[1]).toMatchObject({ drop: true, hard: false, hardReason: 'easy', credit: 0 });
+  });
+
+  it('traces a muscle’s count to each exercise and set, warm-ups included at zero', () => {
+    const week = muscleWeek(build(sets), 'chest', win.start!, win.end);
+    expect(week.sets).toBe(6);
+    expect(week.exercises.map((e) => [e.key, e.role, e.sets])).toEqual([
+      ['machine fly', 'direct', 4],
+      ['barbell bench press', 'direct', 2],
+    ]);
+    expect(week.exercises[1].sessions[0].sets.map((c) => c.credit)).toEqual([0, 1, 1]);
+    // Secondary muscles carry half credit from the catalog (bench → triceps).
+    const triceps = muscleWeek(build(sets), 'triceps', win.start!, win.end).exercises.find((e) => e.key === 'barbell bench press')!;
+    expect(triceps).toMatchObject({ role: 'secondary', sets: 1 });
   });
 });
 

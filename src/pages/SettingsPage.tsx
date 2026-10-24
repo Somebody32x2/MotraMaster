@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact'
 import { useMemo } from 'preact/hooks'
 import { analysisIndex } from '../analysis'
 import { strengthProfile } from '../core/analytics'
-import type { OneRmFormula, Sex, ThemePref, Units } from '../core/types'
+import type { DropSetCredit, OneRmFormula, Sex, ThemePref, Units } from '../core/types'
 import { href, paths } from '../router'
 import { clearData, dataset, settings, updateSettings } from '../state'
 import { ConfirmButton } from '../ui/components/ConfirmButton'
@@ -65,6 +65,13 @@ const SEX_OPTIONS: SelectOption<Sex>[] = [
   { value: 'unspecified', label: 'Prefer not to say' },
   { value: 'male', label: 'Male' },
   { value: 'female', label: 'Female' },
+]
+
+/** Segmented needs string values; the setting is numeric. */
+const DROP_OPTIONS: SegmentedOption<'0' | '0.5' | '1'>[] = [
+  { value: '0', label: 'Once', title: 'A drop set counts as one set, however many drops' },
+  { value: '0.5', label: '½ per drop', title: 'Each drop adds half a set' },
+  { value: '1', label: '1 per drop', title: 'Each drop counts as a full set' },
 ]
 
 const FORMULAS: Array<{ value: OneRmFormula; label: string; formula?: string; desc: string }> = [
@@ -437,6 +444,25 @@ export default function SettingsPage() {
             max={60}
             disabled={!s.trimIdle}
             onChange={(v) => updateSettings({ trimGraceMin: v == null ? 5 : Math.min(60, Math.max(0, Math.round(v))) })}
+          />
+        </Setting>
+      </Section>
+
+      <Section
+        id="counting"
+        title="Set counting"
+        desc="Weekly sets count hard sets: effort 6 or more when logged, otherwise at least 60% of that exercise’s heaviest set in the workout. Lighter sets are warm-ups."
+      >
+        <Setting
+          label="Drop sets"
+          desc="A drop is a lighter set of the same exercise started within 30 seconds of the one before (or with “drop set” in its note). It counts even below 60%. The first set always counts as one."
+        >
+          <Segmented
+            label="Drop sets count"
+            block
+            options={DROP_OPTIONS}
+            value={String(s.dropSetCredit) as '0' | '0.5' | '1'}
+            onChange={(v) => updateSettings({ dropSetCredit: Number(v) as DropSetCredit })}
           />
         </Setting>
       </Section>

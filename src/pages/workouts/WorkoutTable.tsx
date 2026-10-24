@@ -76,11 +76,11 @@ function columns(units: Units, isDetailed: boolean): Col[] {
       id: 'hard',
       header: 'Hard sets',
       numeric: true,
-      title: 'Working sets, excluding warm-ups',
+      title: 'Working sets, excluding warm-ups; drops count as set in Settings',
       value: (r) => r.hardSets,
       render: (r) => (
         <span title={`${plural(r.sets, 'set')} logged`}>
-          {formatNumber(r.hardSets, { maxDecimals: 0 })}
+          {formatNumber(r.hardSets, { maxDecimals: 1 })}
           <span class="faint"> / {formatNumber(r.sets, { maxDecimals: 0 })}</span>
         </span>
       ),

@@ -98,7 +98,7 @@ export const METRICS: readonly MetricDef[] = [
     value: 'hardSets',
     label: 'Hard sets',
     noun: 'hard sets',
-    info: 'Working sets that day, excluding warm-ups.',
+    info: 'Working sets that day, excluding warm-ups; drop sets count as set in Settings.',
     format: (v) => (isNum(v) ? plural(Math.round(v * 10) / 10, 'hard set') : EMPTY),
     short: (v) => formatNumber(v, { maxDecimals: 0 }),
   },

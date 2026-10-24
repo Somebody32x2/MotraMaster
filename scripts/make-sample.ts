@@ -2,7 +2,8 @@
  * Writes a synthetic Motra-style export for development: several months of
  * fabricated push/pull/legs sessions in Motra's stacked-block layout, with a
  * few deliberately awkward labels (camelCase ids, multi-muscle cells, an
- * unknown muscle) to exercise the parser and the "Other" bucket.
+ * unknown muscle) to exercise the parser and the "Other" bucket, and occasional
+ * drop sets (quick lighter sets after the last set of an isolation lift).
  *
  *   node scripts/make-sample.ts [out.xlsx] [weeks]
  *
@@ -19,7 +20,7 @@ let seed = 42
 const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32)
 const pick = <T>(xs: T[]) => xs[Math.floor(rand() * xs.length)]
 
-interface Lift { name: string; muscles: string; start: number; step: number; reps: [number, number]; gain: number; special?: Special }
+interface Lift { name: string; muscles: string; start: number; step: number; reps: [number, number]; gain: number; special?: Special; drops?: boolean }
 
 /** Bodyweight / timed movements with their own set generators (see bodyweightSet). */
 type Special = 'dips' | 'pullup' | 'assisted' | 'plank' | 'situp'
@@ -58,9 +59,9 @@ const DAYS: Record<string, { title: string; lifts: Lift[] }> = {
       { name: 'Barbell Bench Press', muscles: 'chest', start: 135, step: 5, reps: [5, 10], gain: 0.006 },
       { name: 'Machine Seated Chest Press', muscles: 'chest', start: 180, step: 10, reps: [6, 12], gain: 0.007 },
       { name: 'Dumbbell Shoulder Press', muscles: 'shoulders', start: 40, step: 5, reps: [8, 12], gain: 0.005 },
-      { name: 'Machine Fly (Pec Dec)', muscles: 'chest', start: 100, step: 5, reps: [10, 14], gain: 0.004 },
-      { name: 'Cable Tricep Pushdown', muscles: 'triceps', start: 50, step: 5, reps: [10, 15], gain: 0.004 },
-      { name: 'Dumbbell Lateral Raise', muscles: 'shoulders', start: 15, step: 2.5, reps: [12, 15], gain: 0.003 },
+      { name: 'Machine Fly (Pec Dec)', muscles: 'chest', start: 100, step: 5, reps: [10, 14], gain: 0.004, drops: true },
+      { name: 'Cable Tricep Pushdown', muscles: 'triceps', start: 50, step: 5, reps: [10, 15], gain: 0.004, drops: true },
+      { name: 'Dumbbell Lateral Raise', muscles: 'shoulders', start: 15, step: 2.5, reps: [12, 15], gain: 0.003, drops: true },
       bw('Dips', 'chest, triceps', 'dips'),
     ],
   },
@@ -70,7 +71,7 @@ const DAYS: Record<string, { title: string; lifts: Lift[] }> = {
       { name: 'Cable Lat Pulldown', muscles: 'lats', start: 120, step: 5, reps: [8, 12], gain: 0.006 },
       { name: 'Barbell Bent Over Row', muscles: 'lats, traps', start: 115, step: 5, reps: [6, 10], gain: 0.005 },
       { name: 'Machine Row', muscles: 'lats', start: 130, step: 10, reps: [8, 12], gain: 0.005 },
-      { name: 'Dumbbell Bicep Curl', muscles: 'biceps', start: 25, step: 2.5, reps: [8, 12], gain: 0.004 },
+      { name: 'Dumbbell Bicep Curl', muscles: 'biceps', start: 25, step: 2.5, reps: [8, 12], gain: 0.004, drops: true },
       { name: 'Cable Face Pull', muscles: 'shoulders; traps', start: 40, step: 5, reps: [12, 15], gain: 0.003 },
       { name: 'Wrist Roller', muscles: 'grip', start: 10, step: 2.5, reps: [3, 5], gain: 0.002 },
       bw('Pull-Up', 'lats', 'pullup'),
@@ -83,7 +84,7 @@ const DAYS: Record<string, { title: string; lifts: Lift[] }> = {
       { name: 'Barbell Back Squat', muscles: 'quads, glutes', start: 155, step: 10, reps: [5, 8], gain: 0.007 },
       { name: 'Barbell Romanian Deadlift', muscles: 'hamstrings, glutes, lowerBack', start: 135, step: 10, reps: [6, 10], gain: 0.006 },
       { name: 'Machine Leg Press', muscles: 'quads', start: 270, step: 20, reps: [8, 12], gain: 0.008 },
-      { name: 'Machine Seated Leg Curl', muscles: 'hamstrings', start: 90, step: 5, reps: [10, 12], gain: 0.004 },
+      { name: 'Machine Seated Leg Curl', muscles: 'hamstrings', start: 90, step: 5, reps: [10, 12], gain: 0.004, drops: true },
       { name: 'Machine Standing Calf Raise', muscles: 'calves', start: 120, step: 10, reps: [10, 15], gain: 0.004 },
       { name: 'Machine Hip Adduction', muscles: 'adductors', start: 110, step: 10, reps: [10, 15], gain: 0.003 },
       bw('Plank', 'abs, obliques', 'plank'),
@@ -147,6 +148,19 @@ for (const d = new Date(first); d <= end; d.setDate(d.getDate() + 1)) {
       setRows.push([lift.name, weight, reps, time, 0, rest, effort, lift.muscles, ''])
       elapsed += time + rest
       tvl += weight * reps
+    }
+    // ~35% of isolation blocks finish with one or two quick drops (75%, then 55% of the working weight).
+    if (lift.drops && rand() < 0.35) {
+      const nDrops = rand() < 0.5 ? 1 : 2
+      for (let d = 0; d < nDrops; d++) {
+        const weight = roundTo(work * (d === 0 ? 0.75 : 0.55), lift.step)
+        const reps = 6 + Math.floor(rand() * 5)
+        const time = reps * (2 + rand())
+        const rest = 5 + Math.floor(rand() * 15)
+        setRows.push([lift.name, weight, reps, time, 0, rest, '', lift.muscles, ''])
+        elapsed += time + rest
+        tvl += weight * reps
+      }
     }
     if (lift.special === 'dips' && daysIn / (weeks * 7) > 0.85) loggedTotalDips = true
   }
