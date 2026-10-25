@@ -1,7 +1,9 @@
 import { useState } from 'preact/hooks'
+import { IMPORT_EMAIL } from '../core/sync'
 import type { ParseWarning } from '../core/types'
 import { href, navigate, paths } from '../router'
-import { clearData, dataset, importFiles, latestWorkoutDate, type ImportResult } from '../state'
+import { dataset, importFiles, latestWorkoutDate, type ImportResult } from '../state'
+import { clearDevice, noteImport, syncAccount, syncStatus } from '../sync'
 import { Card } from '../ui/components/Card'
 import { ConfirmButton } from '../ui/components/ConfirmButton'
 import { Dropzone } from '../ui/components/Dropzone'
@@ -11,6 +13,7 @@ import { StatStrip } from '../ui/components/StatStrip'
 import { StatTile } from '../ui/components/StatTile'
 import { formatDate, formatNumber, formatRelative, plural } from '../ui/format'
 import { IconAlert, IconCheck, IconChevronRight, IconLock, IconTrash } from '../ui/icons'
+import { SignInForm } from './settings/SyncSection'
 
 type Mode = 'merge' | 'replace'
 
@@ -132,6 +135,8 @@ export default function ImportPage() {
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [onboarding] = useState(!hasData)
+  const [signingIn, setSigningIn] = useState(false)
+  const account = syncAccount.value
 
   const onFiles = async (files: File[]) => {
     const effective: Mode = hasData ? mode : 'replace'
@@ -139,6 +144,7 @@ export default function ImportPage() {
     setError(null)
     try {
       const res = await importFiles(files, effective)
+      if (res.parsed > 0) noteImport(effective)
       setOutcome({ ...res, files: files.map((f) => f.name), mode: effective })
     } catch (err) {
       setOutcome(null)
@@ -182,6 +188,24 @@ export default function ImportPage() {
           {dropzone}
           {feedback}
         </div>
+        <section class="import-first__sync" aria-labelledby="sync-title">
+          <h2 id="sync-title" class="import-first__title">
+            Synced on another device?
+          </h2>
+          {account ? (
+            <p class="muted">
+              {syncStatus.value.state === 'error'
+                ? syncStatus.value.message
+                : `Signed in as ${account.email}. Workouts synced from other devices appear here.`}
+            </p>
+          ) : signingIn ? (
+            <SignInForm />
+          ) : (
+            <button type="button" class="btn" onClick={() => setSigningIn(true)}>
+              Sign in with email
+            </button>
+          )}
+        </section>
         <section class="import-first__howto" aria-labelledby="howto-title">
           <h2 id="howto-title" class="import-first__title">
             How to export from Motra
@@ -190,7 +214,7 @@ export default function ImportPage() {
         </section>
         <p class="import-privacy">
           <IconLock size={14} />
-          Files are read in your browser and stored on this device. No account, no server, and it works offline.
+          Files are read in your browser and stored on this device. Nothing is uploaded unless you sign in to sync, and it works offline.
         </p>
       </div>
     )
@@ -202,7 +226,10 @@ export default function ImportPage() {
 
   return (
     <div class="stack">
-      <PageHeader title="Import" subtitle="Add newer exports or start over. Files never leave this device." />
+      <PageHeader
+        title="Import"
+        subtitle={`Add newer exports or start over. ${account ? `New imports sync to ${account.email}.` : 'Files never leave this device.'}`}
+      />
 
       <Card
         quiet
@@ -242,18 +269,27 @@ export default function ImportPage() {
               How to export from Motra
             </h4>
             <ExportSteps />
+            {account && (
+              <p class="muted import-add__email">
+                Or forward Motra’s email to <a href={`mailto:${IMPORT_EMAIL}`}>{IMPORT_EMAIL}</a> from {account.email}. It
+                is imported on the next sync.
+              </p>
+            )}
           </aside>
         </div>
       </Card>
 
-      <Card title="Remove data" subtitle="Deletes every stored workout from this device. Settings are kept.">
+      <Card
+        title="Remove data"
+        subtitle={`Deletes every stored workout from this device. Settings are kept.${account ? ' This device is also signed out; the synced copy stays.' : ''}`}
+      >
         <ConfirmButton
           label="Clear all data"
           icon={<IconTrash size={16} />}
           prompt={`Delete ${plural(ds.workouts.length, 'workout')} from this device?`}
           confirmLabel="Delete everything"
           onConfirm={async () => {
-            await clearData()
+            await clearDevice()
             setOutcome(null)
           }}
         />

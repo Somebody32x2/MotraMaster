@@ -1,6 +1,6 @@
 # MotraMaster: a static PWA. Build with Node, serve the files with nginx.
-# All workout data is parsed and stored in the visitor's browser; the server
-# only ever hands out static assets.
+# All workout data is parsed and stored in the visitor's browser; this container
+# only ever hands out static assets. Optional sync is samuelshuster.com's /api/motra.
 
 FROM node:22-alpine AS build
 WORKDIR /app

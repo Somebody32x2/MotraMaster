@@ -7,8 +7,8 @@ and per-exercise and per-muscle breakdowns.
 
 **Live:** <https://samuelshuster.com/MotraMaster/>
 
-Your data never leaves your device. The workbook is parsed in the browser and
-stored in IndexedDB; there is no server, account or analytics. The app installs
+Your data stays on your device unless you turn on sync. The workbook is parsed
+in the browser and stored in IndexedDB; there are no analytics. The app installs
 as a PWA and works offline.
 
 ## Using it
@@ -22,6 +22,22 @@ as a PWA and works offline.
 Optional body metrics in Settings (bodyweight, height, sex, birth year) unlock
 relative strength (lift ÷ bodyweight), approximate strength-standard levels,
 estimated DOTS / IPF GL scores and BMI. They are only stored locally.
+
+### Sync (optional)
+
+Settings → **Sync** signs in with an email address and a 6-digit code mailed to
+it; there is no password. Signed in, the browser keeps a copy of its workouts on
+samuelshuster.com and syncs when the app opens, after each import and when you
+come back to it, so every device signed in to the same address shows the same
+workouts. Imports on two devices are merged; a **Replace** import overwrites the
+synced copy. Settings stay per device. Signing out keeps the data on the device;
+**Delete account** removes the synced copy everywhere.
+
+Signed in, you can also forward Motra's "Your Data Export is Ready" email to
+`motramaster@samuelshuster.com` from the address you sign in with; the export
+it links is downloaded and imported on the next sync (Motra's link lasts 7
+days). The sender must pass DMARC, so forward it yourself (an automatic
+forwarding rule keeps Motra as the sender and is ignored).
 
 ## What it shows
 
@@ -92,12 +108,17 @@ node scripts/make-sample.ts sample.xlsx 26   # synthetic 26-week export for test
 `BASE_PATH` sets the sub-path the build is served from (default `/MotraMaster/`;
 use `BASE_PATH=/` for root hosting). Routing is hash-based.
 
+Sync talks to `/api/motra/*` on the same origin, served by samuelshuster.com's
+main app (`app/motra_sync.js` there, which documents the API). `npm run dev`
+proxies it to `http://127.0.0.1:3000`; set `MOTRA_API` to point elsewhere.
+
 | Path | |
 |---|---|
 | `src/core/parse.ts` | Workbook → workouts. Scans every sheet for Motra's stacked blocks |
 | `src/core/labels.ts` | Label normalization and display casing |
 | `src/core/regions.ts` | Muscle label → body region mapping, Motra exercise library lookup |
 | `src/core/analytics/` | e1RM, PRs, trends, per-muscle / per-exercise / per-workout stats |
+| `src/core/sync.ts`, `src/sync.ts` | Sync API client and merge rules; sign-in state and the sync pass |
 | `src/data/motra-exercises.json` | Muscle ratings for 1,635 Motra exercises (from motra.com) |
 | `src/ui/charts/` | Dependency-free SVG charts |
 | `src/ui/bodymap/` | Front/back anatomical muscle map |

@@ -393,3 +393,63 @@
   flex-shrink: 0;
   color: var(--text-faint);
 }
+
+/* Sync: email → code sign-in, shared by Settings and the first-run import page. */
+.sync-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  max-width: 420px;
+}
+
+.sync-form__row {
+  display: flex;
+  gap: var(--s2);
+}
+
+.sync-form__row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.sync-form__row .btn {
+  flex-shrink: 0;
+}
+
+.sync-form .input.sync-form__code {
+  font-family: var(--font-mono);
+  letter-spacing: 0.2em;
+}
+
+.sync-form__links {
+  flex-wrap: wrap;
+}
+
+.sync-email {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+.import-add__email {
+  margin-top: var(--s3);
+  font-size: var(--fs-sm);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.sync-state {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-size: var(--fs-sm);
+}
+
+.sync-state svg {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.sync-state--error {
+  color: var(--neg);
+}

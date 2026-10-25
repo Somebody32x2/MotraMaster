@@ -1,10 +1,10 @@
-import type { ComponentChildren } from 'preact'
 import { useMemo } from 'preact/hooks'
 import { analysisIndex } from '../analysis'
 import { strengthProfile } from '../core/analytics'
 import type { DropSetCredit, OneRmFormula, Sex, ThemePref, Units } from '../core/types'
 import { href, paths } from '../router'
-import { clearData, dataset, settings, updateSettings } from '../state'
+import { dataset, settings, updateSettings } from '../state'
+import { clearDevice, syncAccount } from '../sync'
 import { ConfirmButton } from '../ui/components/ConfirmButton'
 import { NumberField } from '../ui/components/NumberField'
 import { PageHeader } from '../ui/components/PageHeader'
@@ -25,6 +25,8 @@ import {
 import { IconFile, IconMoon, IconSun, IconSystem, IconTrash } from '../ui/icons'
 import { STRENGTH_METRIC_EXPLAINER, STRENGTH_METRIC_OPTIONS } from '../ui/widgets'
 import { StrengthLiftList } from './overview/RelativeStrength'
+import { Section, Setting } from './settings/layout'
+import { SyncSection } from './settings/SyncSection'
 
 const UNIT_OPTIONS: SegmentedOption<Units>[] = [
   { value: 'lb', label: 'Pounds (lb)' },
@@ -119,44 +121,6 @@ const FORMULAS: Array<{ value: OneRmFormula; label: string; formula?: string; de
 ]
 
 const THIS_YEAR = new Date().getFullYear()
-
-/** One section of the settings document: label column on the left (sticky on desktop), controls on the right. */
-function Section({ id, title, desc, children }: { id: string; title: string; desc?: ComponentChildren; children: ComponentChildren }) {
-  return (
-    <section class="settings-section" aria-labelledby={`${id}-title`}>
-      <header class="settings-section__head">
-        <h2 id={`${id}-title`} class="settings-section__title">
-          {title}
-        </h2>
-        {desc != null && <p class="settings-section__desc">{desc}</p>}
-      </header>
-      <div class="settings-section__body">{children}</div>
-    </section>
-  )
-}
-
-function Setting({
-  label,
-  desc,
-  wide,
-  children,
-}: {
-  label: ComponentChildren
-  desc?: ComponentChildren
-  /** Control spans the full width under the label (lists, readouts). */
-  wide?: boolean
-  children: ComponentChildren
-}) {
-  return (
-    <div class={wide ? 'setting setting--wide' : 'setting'}>
-      <div>
-        <p class="setting__label">{label}</p>
-        {desc != null && <p class="setting__desc">{desc}</p>}
-      </div>
-      <div>{children}</div>
-    </div>
-  )
-}
 
 function HeightFields({ heightCm, units }: { heightCm: number | null; units: Units }) {
   if (units === 'kg') {
@@ -469,7 +433,7 @@ export default function SettingsPage() {
 
       <ProfileReadout />
 
-      <Section id="data" title="Data" desc="Stored in this browser only. Clearing site data also removes it.">
+      <Section id="data" title="Data" desc="Stored in this browser. Clearing site data also removes it.">
         {ds ? (
           <>
             <Setting label="Stored">
@@ -498,7 +462,14 @@ export default function SettingsPage() {
                 <p class="faint">None recorded</p>
               )}
             </Setting>
-            <Setting label="Manage" desc="Import newer exports or remove everything from this device.">
+            <Setting
+              label="Manage"
+              desc={
+                syncAccount.value
+                  ? 'Import newer exports, or remove everything from this device and sign it out. The synced copy stays.'
+                  : 'Import newer exports or remove everything from this device.'
+              }
+            >
               <div class="row" style={{ flexWrap: 'wrap' }}>
                 <a class="btn" href={href(paths.import())}>
                   Import files
@@ -508,19 +479,21 @@ export default function SettingsPage() {
                   icon={<IconTrash size={16} />}
                   prompt="Delete all workouts?"
                   confirmLabel="Delete everything"
-                  onConfirm={clearData}
+                  onConfirm={clearDevice}
                 />
               </div>
             </Setting>
           </>
         ) : (
-          <Setting label="No data stored" desc="Import a Motra export to get started.">
+          <Setting label="No data stored" desc="Import a Motra export, or sign in under Sync to bring in your synced workouts.">
             <a class="btn btn--primary" href={href(paths.import())}>
               Import files
             </a>
           </Setting>
         )}
       </Section>
+
+      <SyncSection />
 
       <p class="settings-doc__foot">MotraMaster is an independent tool and is not affiliated with Motra.</p>
     </div>

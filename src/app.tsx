@@ -14,6 +14,7 @@ import WorkoutDetailPage from './pages/WorkoutDetailPage'
 import WorkoutsPage from './pages/WorkoutsPage'
 import { href, navigate, paths, route, type RouteName } from './router'
 import { boot, dataset, loading } from './state'
+import { startSync } from './sync'
 import { isDataRoute } from './ui/components/PageControls'
 import { Skeleton } from './ui/components/Skeleton'
 import {
@@ -181,6 +182,7 @@ export function App() {
   useEffect(() => {
     void boot().then(() => {
       if (!dataset.value && isDataRoute(route.value.name)) navigate(paths.import(), { replace: true })
+      startSync()
     })
   }, [])
 

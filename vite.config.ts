@@ -6,9 +6,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Deployed under a sub-path by default; override with BASE_PATH (e.g. BASE_PATH=/ for root hosting).
 // Routing is hash-based, so the app works under any base.
 const base = process.env.BASE_PATH ?? '/MotraMaster/'
+// Optional sync lives in samuelshuster.com's app (/api/motra, same origin in production).
+// In dev it is proxied to that app running locally, or wherever MOTRA_API points.
+const syncApi = process.env.MOTRA_API ?? 'http://127.0.0.1:3000'
 
 export default defineConfig({
   base,
+  server: {
+    proxy: { '/api/motra': { target: syncApi, changeOrigin: true } },
+  },
   plugins: [
     preact(),
     VitePWA({
@@ -19,7 +25,7 @@ export default defineConfig({
         name: 'MotraMaster',
         short_name: 'MotraMaster',
         description:
-          'Private, offline workout analytics for Motra exports. Trends, estimated 1RM and muscle balance, parsed entirely on your device.',
+          'Workout analytics for Motra exports. Trends, estimated 1RM and muscle balance, parsed on your device, with optional sync.',
         theme_color: '#fbfbfa',
         background_color: '#fbfbfa',
         display: 'standalone',
