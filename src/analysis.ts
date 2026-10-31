@@ -24,9 +24,14 @@ export const analysisIndex = computed<AnalysisIndex | null>(() => {
   return buildIndex(ds, settings.peek())
 })
 
-/** Active analysis window: the selected range, anchored at the latest workout. */
+/**
+ * Active analysis window: starts the selected range back from the latest workout, so stale
+ * exports still show data, and ends today, so "last 7 days" figures count back from today.
+ */
 export const analysisWindow = computed<Window>(() => {
-  const latest = latestWorkoutDate.value ?? new Date()
-  const end = new Date(latest.getFullYear(), latest.getMonth(), latest.getDate(), 23, 59, 59, 999)
+  const now = new Date()
+  const latest = latestWorkoutDate.value ?? now
+  const last = latest > now ? latest : now
+  const end = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999)
   return { start: rangeStartDate(range.value, latest), end }
 })
