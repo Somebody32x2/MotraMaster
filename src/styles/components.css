@@ -911,11 +911,24 @@ th[aria-sort='descending'] {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  max-width: 100%;
   margin-bottom: var(--s3);
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 500;
   transition: color 150ms var(--ease);
+}
+
+/* Back can name any page, including long workout titles. */
+.page-head__back-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-head__back > svg {
+  flex: none;
 }
 
 .page-head__back:hover {

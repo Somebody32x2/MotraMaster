@@ -36,8 +36,8 @@ synced copy. Settings stay per device. Signing out keeps the data on the device;
 Signed in, you can also forward Motra's "Your Data Export is Ready" email to
 `motramaster@samuelshuster.com` from the address you sign in with; the export
 it links is downloaded and imported on the next sync (Motra's link lasts 7
-days). The sender must pass DMARC, so forward it yourself (an automatic
-forwarding rule keeps Motra as the sender and is ignored).
+days). The sender must pass DMARC. An automatic forwarding rule works too: it
+keeps Motra as the sender, so the export goes to the address Motra mailed it to.
 
 ## What it shows
 

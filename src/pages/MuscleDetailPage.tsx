@@ -44,7 +44,7 @@ export default function MuscleDetailPage({ muscleKey }: { muscleKey: string }) {
   const [picked, setPicked] = useState<{ region: RegionId | null; week: number } | null>(null)
   const week = picked && picked.region === region ? picked.week : null
 
-  const back = { path: paths.muscles(), label: 'All muscles' }
+  const back = paths.muscles()
 
   if (!region) {
     return (

@@ -66,7 +66,7 @@ export default function ExerciseDetailPage({ exerciseKey }: { exerciseKey: strin
 
   const known = ds?.exercises[exerciseKey]
   const title = known?.name ?? displayLabel(exerciseKey)
-  const back = { path: paths.exercises(), label: 'All exercises' }
+  const back = paths.exercises()
 
   if (!d) {
     return (

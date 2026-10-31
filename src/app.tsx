@@ -1,7 +1,5 @@
 import type { ComponentType } from 'preact'
 import { useEffect } from 'preact/hooks'
-import { displayLabel } from './core/labels'
-import { isRegionId, regionName } from './core/regions'
 import CalendarPage from './pages/CalendarPage'
 import ExerciseDetailPage from './pages/ExerciseDetailPage'
 import ExercisesPage from './pages/ExercisesPage'
@@ -12,9 +10,10 @@ import OverviewPage from './pages/OverviewPage'
 import SettingsPage from './pages/SettingsPage'
 import WorkoutDetailPage from './pages/WorkoutDetailPage'
 import WorkoutsPage from './pages/WorkoutsPage'
-import { href, navigate, paths, route, type RouteName } from './router'
+import { currentEntry, href, navigate, paths, route, type RouteName } from './router'
 import { boot, dataset, loading } from './state'
 import { startSync } from './sync'
+import { routeTitle } from './titles'
 import { isDataRoute } from './ui/components/PageControls'
 import { Skeleton } from './ui/components/Skeleton'
 import {
@@ -108,29 +107,6 @@ function TabBar() {
   )
 }
 
-const SECTION_LABEL: Record<RouteName, string> = {
-  overview: 'Overview',
-  muscles: 'Muscles',
-  muscle: 'Muscles',
-  exercises: 'Exercises',
-  exercise: 'Exercises',
-  workouts: 'Workouts',
-  workout: 'Workouts',
-  calendar: 'Calendar',
-  import: 'Import',
-  settings: 'Settings',
-}
-
-/** Name of the entity shown by a detail route, or null for section pages. */
-function detailTitle(): string | null {
-  const { name, params } = route.value
-  const ds = dataset.value
-  if (name === 'muscle') return isRegionId(params.key) ? regionName(params.key) : displayLabel(params.key)
-  if (name === 'exercise') return ds?.exercises[params.key]?.name ?? displayLabel(params.key)
-  if (name === 'workout') return ds?.workouts.find((w) => w.id === params.id)?.title ?? 'Workout'
-  return null
-}
-
 function Page({ onboarding }: { onboarding: boolean }) {
   const { name, params } = route.value
   if (onboarding) return <ImportPage />
@@ -186,12 +162,13 @@ export function App() {
     })
   }, [])
 
+  // New entries open at the top; back/forward returns to where the entry was left.
+  const entry = currentEntry()
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [r.path])
+    window.scrollTo(0, entry?.scrollY ?? 0)
+  }, [entry?.key])
 
-  const detail = detailTitle()
-  const title = onboarding ? 'Import' : (detail ?? SECTION_LABEL[r.name])
+  const title = onboarding ? 'Import' : routeTitle(r)
   useEffect(() => {
     document.title = `${title} · MotraMaster`
   }, [title])

@@ -18,7 +18,7 @@ import { CardEmpty } from './overview/parts'
 import { HR_ZONES, isNum, median, sum } from './overview/util'
 import { ExerciseBlock } from './workouts/ExerciseBlock'
 
-const BACK = { path: paths.workouts(), label: 'All workouts' }
+const BACK = paths.workouts()
 const ZONE_COLORS = HR_ZONES.map((_, i) => rampColor(i, HR_ZONES.length))
 
 /** Time in each heart-rate zone as one stacked bar, zone 1 to zone 5 on the accent ramp. */
